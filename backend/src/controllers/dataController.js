@@ -348,7 +348,41 @@ async function buildESQuery(q, index) {
   addMatchAcross('job_title', ['linked.Job_title', 'linked_Job_title', 'job_title', 'merged.Title_Full', 'merged_Title_Full'], { allowExact: true });
   addMulti('job_title', ['linked.Job_title','job_title','merged_Title_Full']);
 
-  addMatchAcross('industry', ['linked.Industry','linked_Industry','merged.SIC','merged_SIC','industry'], { allowExact: true });
+  // ---------- Industry filtering (source-aware) ----------
+  // Behavior:
+  //  - q.industry_source === 'A' (or 'a') -> prefer linked.* industry fields
+  //  - q.industry_source === 'B' (or 'b') -> prefer merged.* industry fields
+  //  - otherwise use a combined list
+  try {
+    const inds = asList(q.industry);
+    const source = (q.industry_source || '').toString().trim().toUpperCase();
+    let industryRawFields = [
+      'linked.Industry','linked_Industry','linked.Industry_2','linked.Company_Industry',
+      'merged.SIC','merged_SIC','merged.Industry','merged_Industry','industry'
+    ];
+
+    if (source === 'A') {
+      industryRawFields = ['linked.Industry','linked_Industry','linked.Industry_2','linked.Company_Industry','linked.Company_Industry.keyword'];
+    } else if (source === 'B') {
+      industryRawFields = ['merged.Industry','merged_Industry','merged.SIC','merged_SIC','merged.Company_Industry','merged.Company_Industry.keyword'];
+    } else {
+      // keep combined default list (both linked + merged)
+      industryRawFields = [
+        'linked.Industry','linked_Industry','linked.Industry_2','linked.Company_Industry',
+        'merged.Industry','merged_Industry','merged.SIC','merged_SIC','industry'
+      ];
+    }
+
+    if (inds.length > 1) {
+      // multiple selected industries -> use addMulti semantics (term + match_phrase per selection)
+      addMulti('industry', industryRawFields);
+    } else {
+      // single or free-text -> prefer match_phrase for fuzzy/phrase matching (exact fallback handled by addMatchAcross)
+      addMatchAcross('industry', industryRawFields, { allowExact: true });
+    }
+  } catch (industryErr) {
+    console.warn('Industry filter processing error:', industryErr && industryErr.message ? industryErr.message : industryErr);
+  }
 
   addMin('years_min', 'linked.Years_Experience');
   addMax('years_max', 'linked.Years_Experience');

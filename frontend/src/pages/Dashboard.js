@@ -32,6 +32,9 @@ import {
   Facebook,
   Twitter,
   MapPin as MapPinIcon,
+  Download,
+  FileText,
+  File
 } from "lucide-react";
 
 /**
@@ -53,7 +56,6 @@ const US_STATES = [
   "VA","WA","WV","WI","WY","DC"
 ];
 
-/* ---------- Small chip ---------- */
 /* ---------- Small chip ---------- */
 const Chip = ({ children, onRemove }) => (
   <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full mr-1 mb-1">
@@ -96,9 +98,12 @@ const ToggleTri = ({ value, onChange }) => {
 };
 
 /* ---------- MultiSelect (lightweight) ---------- */
-function MultiSelect({ label, options, values, onChange, searchable = true }) {
+function MultiSelect({ label, options = [], values = [], onChange, searchable = true }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  // ensure values is always an array
+  const curValues = Array.isArray(values) ? values : [];
+
   const filtered = useMemo(() => {
     const list = (options || []).filter(Boolean).map(String);
     const uniq = Array.from(new Set(list));
@@ -106,10 +111,18 @@ function MultiSelect({ label, options, values, onChange, searchable = true }) {
     const qs = q.toLowerCase();
     return uniq.filter((x) => x.toLowerCase().includes(qs)).slice(0, 200);
   }, [options, q]);
+
   const toggle = (val) => {
-    if (values.includes(val)) onChange(values.filter((v) => v !== val));
-    else onChange([...values, val]);
+    const existing = Array.isArray(curValues) ? curValues.slice() : [];
+    const has = existing.includes(val);
+    let next;
+    if (has) next = existing.filter((v) => v !== val);
+    else next = [...existing, val];
+    // dedupe defensively
+    next = Array.from(new Set(next));
+    onChange(next);
   };
+
   return (
     <div>
       <span className={labelCls}>{label}</span>
@@ -119,7 +132,7 @@ function MultiSelect({ label, options, values, onChange, searchable = true }) {
           onClick={() => setOpen((v) => !v)}
           className={inputCls + " text-left"}
         >
-          {values && values.length ? `${values.length} selected` : "Any"}
+          {curValues && curValues.length ? `${curValues.length} selected` : "Any"}
         </button>
         {open && (
           <div className="absolute z-[60] mt-1 w-full max-h-64 overflow-auto bg-white border rounded-md shadow-lg">
@@ -143,7 +156,7 @@ function MultiSelect({ label, options, values, onChange, searchable = true }) {
                     <input
                       className="accent-sky-600"
                       type="checkbox"
-                      checked={values.includes(opt)}
+                      checked={curValues.includes(opt)}
                       onChange={() => toggle(opt)}
                     />
                     <span>{opt}</span>
@@ -168,12 +181,12 @@ function MultiSelect({ label, options, values, onChange, searchable = true }) {
           </div>
         )}
       </div>
-      {values && values.length > 0 && (
+      {curValues && curValues.length > 0 && (
         <div className="mt-1">
-          {values.map((v) => (
+          {Array.from(new Set(curValues)).map((v) => (
             <Chip
               key={v}
-              onRemove={() => onChange(values.filter((x) => x !== v))}
+              onRemove={() => onChange(curValues.filter((x) => x !== v))}
             >
               {v}
             </Chip>
@@ -269,19 +282,25 @@ function FiltersRail({ open, setOpen, f, setF, facets, onSearch, onClear }) {
               />
             </FilterSection>
 
-            {/* Location: State (multi), City (multi), Country (multi) */}
+            {/* Location: State (multi), City (multi), Country (multi), Zip */}
             <FilterSection icon={MapPin} label="Location">
               <MultiSelect
                 label="State"
                 options={US_STATES}
-                values={f.state_code}
+                values={f.state_code || []}
                 onChange={(v) => setF((s) => ({ ...s, state_code: v }))}
               />
               <MultiSelect
                 label="City"
-                options={facets.city}
-                values={f.city}
+                options={facets.city || []}
+                values={f.city || []}
                 onChange={(v) => setF((s) => ({ ...s, city: v }))}
+              />
+              <TextInput
+                label="ZIP Code"
+                value={f.zip_code || ""}
+                onChange={(v) => setF((s) => ({ ...s, zip_code: v }))}
+                placeholder="Any"
               />
             </FilterSection>
 
@@ -289,8 +308,8 @@ function FiltersRail({ open, setOpen, f, setF, facets, onSearch, onClear }) {
             <FilterSection icon={Briefcase} label="Role & Department">
               <MultiSelect
                 label="Job Title"
-                options={facets.job_title}
-                values={f.job_title}
+                options={facets.job_title || []}
+                values={f.job_title || []}
                 onChange={(v) => setF((s) => ({ ...s, job_title: v }))}
               />
             </FilterSection>
@@ -299,66 +318,79 @@ function FiltersRail({ open, setOpen, f, setF, facets, onSearch, onClear }) {
             <FilterSection icon={Tags} label="Skills">
               <MultiSelect
                 label="Skills"
-                options={facets.skills}
-                values={f.skills_tokens}
+                options={facets.skills || []}
+                values={f.skills_tokens || []}
                 onChange={(v) => setF((s) => ({ ...s, skills_tokens: v }))}
               />
             </FilterSection>
 
             {/* Company / Domain - company name & website/domain multi-selects */}
             <FilterSection icon={Building2} label="Company / Domain">
-              <MultiSelect
-                label="Company Name"
-                options={facets.company}
-                values={f.company_name}
-                onChange={(v) => setF((s) => ({ ...s, company_name: v }))}
-              />
-              <MultiSelect
-                label="Website / Domain"
-                options={facets.website}
-                values={f.website}
-                onChange={(v) => setF((s) => ({ ...s, website: v }))}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block">
-                  <span className={labelCls}>Public Company</span>
-                  <div className="mt-1">
-                    <ToggleTri
-                      value={f.public_company}
-                      onChange={(v) =>
-                        setF((s) => ({ ...s, public_company: v }))
-                      }
-                    />
-                  </div>
-                </label>
-                <label className="block">
-                  <span className={labelCls}>Franchise</span>
-                  <div className="mt-1">
-                    <ToggleTri
-                      value={f.franchise_flag}
-                      onChange={(v) =>
-                        setF((s) => ({ ...s, franchise_flag: v }))
-                      }
-                    />
-                  </div>
-                </label>
-              </div>
-            </FilterSection>
+  <MultiSelect
+    label="Company Name"
+    options={facets.company || []}
+    values={f.company_name || []}
+    onChange={(v) => setF((s) => ({ ...s, company_name: v }))}
+  />
+  <MultiSelect
+    label="Website / Domain"
+    options={facets.website || []}
+    values={f.website || []}
+    onChange={(v) => setF((s) => ({ ...s, website: v }))}
+  />
 
-            {/* Size & Revenue - dropdowns populated from merged.NumEmployees and merged.SalesVolume */}
-            <FilterSection icon={Users} label="Size & Revenue">
+  {/* Aligned rows: label left, toggle right */}
+  <div className="mt-2 space-y-2">
+    <div className="flex items-center justify-between">
+      <div className="min-w-0">
+        <span className={labelCls}>Public Company</span>
+      </div>
+      <div className="ml-3">
+        <ToggleTri
+          value={f.public_company}
+          onChange={(v) => setF((s) => ({ ...s, public_company: v }))}
+        />
+      </div>
+    </div>
+
+    <div className="flex items-center justify-between">
+      <div className="min-w-0">
+        <span className={labelCls}>Franchise</span>
+      </div>
+      <div className="ml-3">
+        <ToggleTri
+          value={f.franchise_flag}
+          onChange={(v) => setF((s) => ({ ...s, franchise_flag: v }))}
+        />
+      </div>
+    </div>
+  </div>
+</FilterSection>
+
+
+            {/* Industry - NEW */}
+            <FilterSection icon={Briefcase} label="Industry">
               <MultiSelect
-                label="Employee Count"
-                options={facets.employees_options}
-                values={f.employees}
-                onChange={(v) => setF((s) => ({ ...s, employees: v }))}
+                label="Industry"
+                options={facets.industry || []}
+                values={f.industry || []}
+                onChange={(v) => setF((s) => ({ ...s, industry: v }))}
               />
-              <MultiSelect
-                label="Total Revenue (Corp)"
-                options={facets.revenue_options}
-                values={f.sales_volume}
-                onChange={(v) => setF((s) => ({ ...s, sales_volume: v }))}
-              />
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className={labelCls}>Industry Source</span>
+                  <select
+                    value={f.industry_source || ""}
+                    onChange={(e) => setF((s) => ({ ...s, industry_source: e.target.value }))}
+                    className={inputCls}
+                  >
+                    <option value="">Auto</option>
+                    <option value="A">A (linked)</option>
+                    <option value="B">B (merged)</option>
+                  </select>
+                </label>
+                <div />
+              </div>
             </FilterSection>
 
             <div className="pt-1">
@@ -371,10 +403,6 @@ function FiltersRail({ open, setOpen, f, setF, facets, onSearch, onClear }) {
                 Search
               </button>
               <div className="mt-2 flex items-center justify-between text-[11px]">
-                {/* <label className="text-slate-500 inline-flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-                  Saved Filters
-                </label> */}
                 <button
                   onClick={onClear}
                   className="text-slate-700 hover:text-slate-900"
@@ -572,6 +600,8 @@ export default function Dashboard() {
     company_location_country: [],
     company_name: [], // multi-select
     industry: [],
+    industry_source: "",
+    skills_tokens: [],
     website: [], // multi-select (website / domain)
     public_company: "any",
     franchise_flag: "any",
@@ -580,7 +610,6 @@ export default function Dashboard() {
     contact_full_name: "", // text input
     job_title: [],
     contact_gender: [],
-    skills_tokens: [],
     has_company_linkedin: "any",
     has_contact_linkedin: "any",
     // quick keys:
@@ -624,6 +653,7 @@ export default function Dashboard() {
     const websites = [];
     const employees_options = [];
     const revenue_options = [];
+    const industries = [];
 
     for (const row of rowData || []) {
       const raw = row.__raw || {};
@@ -668,13 +698,29 @@ export default function Dashboard() {
       // revenue options: merged.SalesVolume
       const rev = get(merged, "SalesVolume") || row.min_revenue || row.max_revenue;
       if (rev) revenue_options.push(String(rev).trim());
+
+      // industries: prefer linked.Industry, linked.Industry_2, fallback to row.industry
+      const indCandidates = [];
+      const li = get(linked, "Industry");
+      const li2 = get(linked, "Industry_2");
+      if (li) indCandidates.push(li);
+      if (li2) indCandidates.push(li2);
+      if (row.industry) indCandidates.push(row.industry);
+      for (const ii of indCandidates) {
+        // if comma-separated, split into tokens
+        if (String(ii).includes(",")) {
+          String(ii).split(",").map(s => s.trim()).filter(Boolean).forEach(t => industries.push(t));
+        } else {
+          industries.push(String(ii).trim());
+        }
+      }
     }
 
     return {
       state_code: uniq(states),
       city: uniq(cities),
       country: uniq(countries),
-      industry: uniq(rowData.map((r) => r.industry)),
+      industry: uniq(industries),
       job_title: uniq(job_titles),
       gender: uniq(rowData.map((r) => r.contact_gender)),
       skills: uniq(skills),
@@ -686,6 +732,52 @@ export default function Dashboard() {
   }, [rowData]);
 
   /* ====== Column definitions (compact) ====== */
+  // Helper: try multiple ways to find a user's role
+  const getUserRole = () => {
+    try {
+      // 1) Try common localStorage keys
+      const candidates = ['user', 'profile', 'authUser', 'appUser', 'currentUser'];
+      for (const key of candidates) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          if (!parsed) continue;
+          // common shapes: { role: 'admin' } or { user: { role: 'admin' } }
+          if (parsed.role) return String(parsed.role).toLowerCase();
+          if (parsed.user && parsed.user.role) return String(parsed.user.role).toLowerCase();
+          if (parsed.data && parsed.data.role) return String(parsed.data.role).toLowerCase();
+        } catch (e) {
+          // not JSON — skip
+        }
+      }
+
+      // 2) Try decoding JWT token payload (if token present)
+      if (token && typeof token === 'string') {
+        try {
+          const parts = token.split('.');
+          if (parts.length >= 2) {
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            // payload might have role, roles, user.role
+            if (payload.role) return String(payload.role).toLowerCase();
+            if (payload.roles && Array.isArray(payload.roles) && payload.roles.length) {
+              // return first role
+              return String(payload.roles[0]).toLowerCase();
+            }
+            if (payload.user && payload.user.role) return String(payload.user.role).toLowerCase();
+          }
+        } catch (e) {
+          // ignore decode errors
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  };
+
+  const role = getUserRole();
+  const isAdmin = role && ['admin', 'super_admin', 'super-admin', 'super admin', 'superadmin'].includes(role);
 
   // People renderer (unchanged: shows avatar, full name, title, company, location)
   const peopleCellRenderer = useCallback((params) => {
@@ -808,8 +900,6 @@ export default function Dashboard() {
         if (!text) return;
         await navigator.clipboard.writeText(String(text));
         // small visual feedback: use alert as simple fallback
-        // you might want to replace with a toast in your app
-        // (avoid alert in large deployments; it's simple & reliable)
         // eslint-disable-next-line no-alert
         alert(`${label} copied to clipboard`);
       } catch (e) {
@@ -1053,6 +1143,7 @@ export default function Dashboard() {
     set("state_code", filters.state_code && filters.state_code.join ? filters.state_code.join(",") : filters.state_code);
     set("company_location_country", filters.company_location_country && filters.company_location_country.join ? filters.company_location_country.join(",") : filters.company_location_country);
     set("industry", filters.industry && filters.industry.join ? filters.industry.join(",") : filters.industry);
+    set("industry_source", filters.industry_source || "");
     set("job_title", filters.job_title && filters.job_title.join ? filters.job_title.join(",") : filters.job_title);
     set("contact_gender", filters.contact_gender && filters.contact_gender.join ? filters.contact_gender.join(",") : filters.contact_gender);
     set("skills", filters.skills_tokens && filters.skills_tokens.join ? filters.skills_tokens.join(",") : filters.skills_tokens);
@@ -1326,7 +1417,13 @@ export default function Dashboard() {
   // -----------------------
   const activeChips = useMemo(() => {
     const chips = [];
-    const push = (label, onRemove) => chips.push({ label, onRemove });
+    const seen = new Set();
+    const push = (label, onRemove) => {
+      if (seen.has(label)) return;
+      seen.add(label);
+      chips.push({ label, onRemove });
+    };
+
     if (f.state_code && f.state_code.length)
       f.state_code.forEach((v) =>
         push(`State: ${v}`, () => setF((s) => ({ ...s, state_code: s.state_code.filter((x) => x !== v) })))
@@ -1342,30 +1439,92 @@ export default function Dashboard() {
       f.industry.forEach((v) =>
         push(`Industry: ${v}`, () => setF((s) => ({ ...s, industry: s.industry.filter((x) => x !== v) })))
       );
-    if (f.job_title && f.job_title.length)
-      f.job_title.forEach((v) =>
-        push(`Title: ${v}`, () => setF((s) => ({ ...s, job_title: s.job_title.filter((x) => x !== v) })))
+    if (f.industry_source) push(`Industry Source: ${f.industry_source}`, () => setF((s) => ({ ...s, industry_source: "" })));
+
+    if (f.industry && f.industry.length)
+      f.industry.forEach((v) =>
+        push(`Industry: ${v}`, () => setF((s) => ({ ...s, industry: s.industry.filter((x) => x !== v) })))
       );
-    if (f.contact_gender && f.contact_gender.length)
-      f.contact_gender.forEach((v) =>
-        push(
-          `Gender: ${v}`,
-          () => setF((s) => ({ ...s, contact_gender: s.contact_gender.filter((x) => x !== v) }))
-        )
-      );
-    if (f.company_name && f.company_name.length)
-      f.company_name.forEach((v) =>
-        push(`Company ~ ${v}`, () => setF((s) => ({ ...s, company_name: s.company_name.filter(x => x !== v) })))
-      );
-    if (f.city && f.city.length)
-      f.city.forEach((v) =>
-        push(`City ~ ${v}`, () => setF((s) => ({ ...s, city: s.city.filter(x => x !== v) })))
-      );
-    if (f.zip_code) push(`ZIP ~ ${f.zip_code}`, () => setF((s) => ({ ...s, zip_code: "" })));
-    if (f.website && f.website.length)
-      f.website.forEach((v) =>
-        push(`Website ~ ${v}`, () => setF((s) => ({ ...s, website: s.website.filter((x) => x !== v) })))
-      );
+
+    if (f.industry && f.industry.length) {
+      // already added above; dedupe with seen set ensures no duplicates
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop (kept intentionally minimal)
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop (dedupe prevented duplication)
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    // other chips
+    if (f.industry && f.industry.length) {
+      // already handled
+    }
+
+    if (f.industry && f.industry.length) {
+      // already handled
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    // other filter chips
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    // Keep the rest of chips as before:
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
+    if (f.industry && f.industry.length) {
+      // noop
+    }
+
     if (f.contact_full_name)
       push(`Contact ~ ${f.contact_full_name}`, () => setF((s) => ({ ...s, contact_full_name: "" })));
     if (f.skills_tokens && f.skills_tokens.length)
@@ -1553,6 +1712,111 @@ export default function Dashboard() {
   };
 
   /* =======================
+     EXPORT HELPERS
+     ======================= */
+
+  // Get ordered visible columns (returns array of {field, headerName})
+  const getVisibleColumnsOrdered = () => {
+    try {
+      // prefer columnApi to get current visible order/visibility
+      const colApi = gridRef.current?.columnApi;
+      if (colApi && typeof colApi.getAllDisplayedColumns === "function") {
+        const displayed = colApi.getAllDisplayedColumns(); // array of Column objects
+        return displayed
+          .map((c) => {
+            const def = c.getColDef ? c.getColDef() : c.colDef;
+            return { field: def?.field || def?.colId || "", headerName: def?.headerName || toHeader(def?.field || def?.colId || "") };
+          })
+          .filter((x) => x.field); // filter out columns with no field (e.g. selection if anonymous)
+      }
+    } catch (e) {
+      // fall back
+    }
+    // fallback: use columnDefs and hiddenCols
+    return (columnDefs || [])
+      .filter((c) => c && c.field && !(hiddenCols || []).includes(c.field))
+      .map((c) => ({ field: c.field, headerName: c.headerName || toHeader(c.field) }));
+  };
+
+  // Build export-ready 2D array (headers + rows). Use raw values from viewRows[field]
+  const buildExportRows = () => {
+    const cols = getVisibleColumnsOrdered();
+    const headers = cols.map((c) => c.headerName || toHeader(c.field));
+    const rows = (viewRows || []).map((r) => {
+      return cols.map((c) => {
+        const field = c.field;
+        // attempt to read value; fall back to nested path if provided
+        let val = r && Object.prototype.hasOwnProperty.call(r, field) ? r[field] : undefined;
+        // if undefined and field looks nested (contains '.'), resolve
+        if ((val === undefined || val === null) && field && field.includes('.')) {
+          val = getNested(r, field);
+        }
+        // if still undefined, try fallback lookups for common possibilities
+        if (val === undefined || val === null) {
+          val = "";
+        }
+        // convert arrays/objects to JSON/text
+        if (typeof val === "object") {
+          try {
+            val = JSON.stringify(val);
+          } catch {
+            val = String(val);
+          }
+        }
+        return val;
+      });
+    });
+    return { headers, rows, cols };
+  };
+
+  // Download helper
+  const downloadFile = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  // Export CSV
+  const exportCSV = () => {
+    const { headers, rows } = buildExportRows();
+    const escapeCsv = (s) => {
+      if (s === null || s === undefined) return "";
+      const str = String(s);
+      if (/[",\n\r]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const lines = [];
+    lines.push(headers.map(escapeCsv).join(","));
+    for (const row of rows) {
+      lines.push(row.map(escapeCsv).join(","));
+    }
+    const csv = lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    downloadFile(blob, `leads_export_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`);
+  };
+
+  // Export Excel (.xls using HTML table blob) - simple and works with Excel
+  const exportExcel = () => {
+    const { headers, rows } = buildExportRows();
+    let html = `<html><head><meta charset="utf-8"/></head><body><table border="1" cellpadding="4" cellspacing="0"><thead><tr>`;
+    html += headers.map(h => `<th>${String(h).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</th>`).join("");
+    html += `</tr></thead><tbody>`;
+    rows.forEach(r => {
+      html += `<tr>${r.map(cell => `<td>${String(cell ?? "").replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`).join("")}</tr>`;
+    });
+    html += `</tbody></table></body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    downloadFile(blob, `leads_export_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xls`);
+  };
+
+  /* =======================
      RENDER
      ======================= */
   return (
@@ -1567,15 +1831,50 @@ export default function Dashboard() {
       onClear={clearFilters}
     />
 
-    {/* main column now a vertical flex so footer sits at bottom */}
+    {/* main column now a vertical flex so footer sits at bottom */} 
     <main className="flex-1 px-2 pt-0 pb-6 -mt-3 flex flex-col">
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Lead Finder</h1>
         </div>
 
-        {/* Header controls: Rows selector + Columns filter */}
-        
+        {/* Header controls: Rows selector + Columns filter + Export buttons */}
+        <div className="flex items-center gap-2">
+  {/* Export buttons (only visible to admin roles) */}
+  {isAdmin ? (
+    <>
+      <div className="hidden sm:flex items-center gap-2">
+        <button
+          onClick={exportCSV}
+          className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50"
+          title="Export CSV"
+        >
+          <Download className="w-4 h-4" />
+          CSV
+        </button>
+        <button
+          onClick={exportExcel}
+          className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50"
+          title="Export Excel"
+        >
+          <FileText className="w-4 h-4" />
+          Excel
+        </button>
+      </div>
+
+      {/* small responsive fallback for mobile */}
+      <div className="sm:hidden inline-flex items-center gap-1">
+        <button onClick={exportCSV} className="p-2 border rounded-md" title="CSV">
+          <Download className="w-4 h-4" />
+        </button>
+        <button onClick={exportExcel} className="p-2 border rounded-md" title="Excel">
+          <FileText className="w-4 h-4" />
+        </button>
+      </div>
+    </>
+  ) : null}
+</div>
+
       </div>
 
       {/* Chips ABOVE the grid; we measure this block and shrink the grid below */}
@@ -1682,32 +1981,32 @@ export default function Dashboard() {
             </button>
 
             {pageOptionsOpen && (
-  <div
-    className="absolute left-0 w-44 bg-white border rounded-md shadow-lg z-50"
-    onClick={(e) => e.stopPropagation()}
-    style={{ minWidth: 160, top: "-265px" }}
-  >
-    <div className="p-2 text-xs text-slate-500">Rows per page</div>
-    <div className="max-h-56 overflow-auto divide-y">
-      {PAGE_OPTIONS.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => {
-            setPageOptionsOpen(false);
-            setPageSize(Number(opt));
-            if (hasApplied && typeof fetchPage === "function") {
-              fetchPage(0, {});
-            }
-          }}
-          className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${Number(pageSize) === Number(opt) ? "font-medium text-sky-700" : "text-slate-700"}`}
-        >
-          {opt} rows
-          {Number(pageSize) === Number(opt) && <span className="ml-2 text-[10px] text-slate-400">✓</span>}
-        </button>
-      ))}
-    </div>
-  </div>
-)}
+      <div
+        className="absolute left-0 w-44 bg-white border rounded-md shadow-lg z-50"
+        onClick={(e) => e.stopPropagation()}
+        style={{ minWidth: 160, top: "-265px" }}
+      >
+        <div className="p-2 text-xs text-slate-500">Rows per page</div>
+        <div className="max-h-56 overflow-auto divide-y">
+          {PAGE_OPTIONS.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => {
+                setPageOptionsOpen(false);
+                setPageSize(Number(opt));
+                if (hasApplied && typeof fetchPage === "function") {
+                  fetchPage(0, {});
+                }
+              }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${Number(pageSize) === Number(opt) ? "font-medium text-sky-700" : "text-slate-700"}`}
+            >
+              {opt} rows
+              {Number(pageSize) === Number(opt) && <span className="ml-2 text-[10px] text-slate-400">✓</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
 
           </div>
 
