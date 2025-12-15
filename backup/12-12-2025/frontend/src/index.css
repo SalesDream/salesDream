@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App globals */
+html, body, #root { height: 100%; }
+body { @apply bg-gray-50; }
+.text-symbolic {
+  @apply text-xs font-medium text-gray-500;
+}
+
+.ag-theme-quartz.pro-header {
+  --ag-header-background-color: #0f172a;
+  --ag-header-foreground-color: #ffffff;
+  --ag-header-height: 44px;
+  --ag-border-color: #e5e7eb;
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: rgba(255,255,255,.25);
+  --ag-header-column-resize-handle-color: rgba(255,255,255,.5);
+}

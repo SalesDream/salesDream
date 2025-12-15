@@ -11,7 +11,6 @@ const asList = (v) => {
 
 async function getIndexProperties(index) {
   try {
-    // index may be comma-joined string or single index name
     const mappingResp = await client.indices.getMapping({ index });
     const body = mappingResp && mappingResp.body ? mappingResp.body : mappingResp;
     const firstKey = Object.keys(body || {})[0];
@@ -479,40 +478,33 @@ exports.getLeads = async (req, res) => {
       return res.status(500).json({ message: 'No OpenSearch index found', tried });
     }
 
-    // Allow optional override via query.index or body.index if you want single-index queries
+    // Allow optional override via query.index if you want single-index queries
     let searchIndex = indices;
-    if ((req.query && req.query.index) || (req.body && req.body.index)) {
-      const requestedRaw = (req.method === 'POST' ? req.body.index : req.query.index) || '';
-      try {
-        const requested = String(requestedRaw).split(',').map(s => s.trim()).filter(Boolean);
-        const allowed = requested.filter(r => indices.includes(r));
-        if (allowed.length) searchIndex = allowed;
-      } catch (e) {
-        // ignore parse
-      }
+    if (req.query.index && typeof req.query.index === 'string') {
+      // if user asked for a specific index and it exists, use only that one
+      const requested = req.query.index.split(',').map(s => s.trim()).filter(Boolean);
+      const allowed = requested.filter(r => indices.includes(r));
+      if (allowed.length) searchIndex = allowed;
+      // else keep searchIndex as all found indices
     }
 
-    // Pagination defaults
-    const rawLimit = req.query && req.query.limit !== undefined ? req.query.limit : (req.body && req.body.limit !== undefined ? req.body.limit : undefined);
-    const rawOffset = req.query && req.query.offset !== undefined ? req.query.offset : (req.body && req.body.offset !== undefined ? req.body.offset : undefined);
+    const rawLimit = req.query.limit;
+    const rawOffset = req.query.offset;
     const limit = rawLimit !== undefined ? Math.max(1, Math.min(1000, parseInt(rawLimit, 10) || 100)) : 100;
     const offset = rawOffset !== undefined ? Math.max(0, parseInt(rawOffset, 10) || 0) : 0;
 
-    // IMPORTANT: Accept input from either query (GET) or body (POST). For large queries (export) prefer POST.
-    const input = (req.method === 'POST' && req.body && Object.keys(req.body).length >= 0) ? req.body : req.query;
-
-    console.info('DEBUG getLeads request input:', input);
+    console.info('DEBUG getLeads request query:', req.query);
 
     // build ES query (async & mapping-aware) - pass the searchIndex (array or single)
-    const esQuery = await buildESQuery(input, Array.isArray(searchIndex) ? searchIndex.join(',') : searchIndex);
+    const esQuery = await buildESQuery(req.query, searchIndex);
     console.info('DEBUG built esQuery:', JSON.stringify(esQuery));
 
     // Load properties once so we can safely validate sort fields
-    const props = await getIndexProperties(Array.isArray(searchIndex) ? searchIndex.join(',') : searchIndex);
+    const props = await getIndexProperties(searchIndex);
 
     let sortClause = [];
-    const requestedSortField = (input && input.sort_field) || undefined;
-    const requestedSortDir = ((input && (input.sort_dir || 'desc')).toLowerCase() === 'asc') ? 'asc' : 'desc';
+    const requestedSortField = req.query.sort_field;
+    const requestedSortDir = ((req.query.sort_dir || 'desc').toLowerCase() === 'asc') ? 'asc' : 'desc';
 
     if (requestedSortField && typeof requestedSortField === 'string' && /^[\w.@\-]+$/.test(requestedSortField)) {
       if (fieldExistsInProps(props, requestedSortField)) {
@@ -521,8 +513,8 @@ exports.getLeads = async (req, res) => {
         console.warn('Requested sort_field not found in mapping, ignoring sort_field:', requestedSortField);
       }
     } else {
-      const dateField = await chooseDateSortField(Array.isArray(searchIndex) ? searchIndex.join(',') : searchIndex);
-      const idChoice = await chooseIdSort(Array.isArray(searchIndex) ? searchIndex.join(',') : searchIndex);
+      const dateField = await chooseDateSortField(searchIndex);
+      const idChoice = await chooseIdSort(searchIndex);
       if (dateField && typeof dateField === 'string' && fieldExistsInProps(props, dateField)) {
         sortClause.push({ [dateField]: { order: 'desc', missing: '_last' } });
       } else if (dateField) {
@@ -537,10 +529,8 @@ exports.getLeads = async (req, res) => {
 
     if (!Array.isArray(sortClause) || sortClause.length === 0) sortClause = null;
 
-    // Build search params - ensure index passed as string (comma-joined) to avoid weird URL long-lines
-    const indexParam = Array.isArray(searchIndex) ? searchIndex.join(',') : searchIndex;
     const searchParams = {
-      index: indexParam,
+      index: searchIndex, // array of indices or single string
       body: {
         query: esQuery,
         track_total_hits: true
@@ -550,9 +540,9 @@ exports.getLeads = async (req, res) => {
     };
     if (sortClause) searchParams.sort = sortClause;
 
-    // NOTE: Some OpenSearch clients may try to use GET with long URL when index is an array
-    // To reduce chance of 'too_long_http_line_exception' ensure index is joined string above.
-    // Also prefer using POST-style body requests (client.search will use POST when a body is present).
+    if (req.query && req.query.phone) {
+      console.info('DEBUG getLeads: phone param present. searchParams summary:', JSON.stringify({ index: searchParams.index, from: searchParams.from, size: searchParams.size, sort: searchParams.sort }));
+    }
 
     let resp;
     try {
@@ -562,7 +552,7 @@ exports.getLeads = async (req, res) => {
       try {
         if (searchParams.sort) {
           console.warn('Retrying search without sort due to error.');
-          const retryParams = { index: indexParam, body: { query: esQuery, track_total_hits: true }, from: offset, size: limit };
+          const retryParams = { index: searchIndex, body: { query: esQuery, track_total_hits: true }, from: offset, size: limit };
           resp = await client.search(retryParams);
         } else {
           throw err;
@@ -594,7 +584,7 @@ exports.getLeads = async (req, res) => {
 
     if (totalIsEstimate) {
       try {
-        const countResp = await client.count({ index: indexParam, body: { query: esQuery } });
+        const countResp = await client.count({ index: searchIndex, body: { query: esQuery } });
         const countBody = countResp && countResp.body ? countResp.body : countResp;
         if (countBody && typeof countBody.count === 'number') {
           total = countBody.count;
@@ -614,7 +604,7 @@ exports.getLeads = async (req, res) => {
 
     return res.json({
       meta: {
-        index: indexParam,
+        index: Array.isArray(searchIndex) ? searchIndex.join(',') : searchIndex,
         total: typeof total === 'number' ? total : rows.length,
         from: offset,
         size: limit
