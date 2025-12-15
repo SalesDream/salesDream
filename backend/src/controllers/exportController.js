@@ -227,3 +227,5 @@ exports.getStatus = async (req, res) => {
   if (!jobId || !jobs[jobId]) return res.status(404).json({ message: 'Job not found' });
   return res.json(jobs[jobId]);
 };
+
+
