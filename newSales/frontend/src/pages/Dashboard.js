@@ -570,6 +570,7 @@ export default function Dashboard() {
   const [pageExportProgress, setPageExportProgress] = useState(0);
   const [pageExportStatus, setPageExportStatus] = useState("");
   const [activeExportBtn, setActiveExportBtn] = useState(null);
+  const exportPollRef = useRef(null);
   // Global search box
 const [globalSearch, setGlobalSearch] = useState("");
 
@@ -1944,33 +1945,86 @@ params.offset = baseOffset + i * MAX;
   /* ================
      BACKEND EXPORT (Export All Records job)
      ================ */
+const beginExportPolling = (jobId) => {
+  stopExportPolling();
+
+  exportPollRef.current = setInterval(async () => {
+    try {
+      const resp = await api.get(`/api/exports/status/${jobId}`); // <-- update route if different
+      const data = resp?.data || {};
+
+      // Expected: { status: "running|completed|failed", progress: 0-100, file?: "path" }
+      const status = data.status || "running";
+      const progress = Number.isFinite(data.progress) ? data.progress : 0;
+
+      setExportJob((prev) => ({ ...(prev || {}), jobId, ...data }));
+      setExportProgress(progress);
+
+      if (status === "completed") {
+        setExporting(false);
+        stopExportPolling();
+
+        // optional: auto-download if backend gives file url/path
+        // if (data.file) downloadExportFile(data.file);
+      }
+
+      if (status === "failed") {
+        setExporting(false);
+        setExportError(data.error || "Export failed.");
+        stopExportPolling();
+      }
+    } catch (e) {
+      // If polling fails, stop it and reset (prevents infinite "in progress")
+      const msg = e?.response?.data?.message || e?.message || "Export status check failed.";
+      setExportError(msg);
+      setExporting(false);
+      stopExportPolling();
+    }
+  }, 1500);
+};
+
+const stopExportPolling = () => {
+  if (exportPollRef.current) {
+    clearInterval(exportPollRef.current);
+    exportPollRef.current = null;
+  }
+};
 
   // Start export job on server. format = 'csv' | 'xls'
   // Start backend export
-const startExportJob = async () => {
-  setExporting(true);
-  setExportError(null);
-
+const startExportJob = async (format = "csv") => {
   try {
-    const filters = buildQuery({ ...f, q: globalSearch });  // ✅ include q
-const res = await api.post("/api/export/start", filters);
+    setExportError("");
+    setExportProgress(0);
 
-    const { jobId, filename } = res.data;
-
-    setExportJob({
-      jobId,
-      filename,
-      status: "running",
-      progress: 0,
-    });
-
-    localStorage.setItem("exportJobId", jobId);
-    pollExportStatus(jobId);
-  } catch (err) {
-    setExportError(err?.response?.data?.message || "Export failed");
+    // IMPORTANT: don't show "exporting" until backend confirms job started
     setExporting(false);
+    setExportJob(null);
+
+    // Call backend to create job
+    const resp = await api.post("/api/exports/start", { format }); // <-- update route if different
+
+    const jobId = resp?.data?.jobId;
+    if (!jobId) {
+      throw new Error("Export job did not start (jobId missing).");
+    }
+
+    // Now we can show exporting UI
+    setExporting(true);
+    setExportJob({ jobId, status: "running" });
+
+    // Start polling
+    beginExportPolling(jobId);
+  } catch (e) {
+    const msg = e?.response?.data?.message || e?.message || "Failed to start export.";
+    setExportError(msg);
+    setExporting(false);
+    setExportJob(null);
+    setExportProgress(0);
+    stopExportPolling();
   }
 };
+
 
 
 // Poll job status
@@ -2058,16 +2112,25 @@ useEffect(() => {
   };
 
   // Cancel export polling & clear state
-  const cancelExport = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
+ const cancelExport = async () => {
+  try {
+    const jobId = exportJob?.jobId;
+    if (!jobId) return;
+
+    await api.post(`/api/exports/cancel/${jobId}`);
+  } catch (e) {
+    // ignore
+  } finally {
     setExporting(false);
     setExportJob(null);
     setExportProgress(0);
-    setExportError(null);
-  };
+    stopExportPolling();
+  }
+};
+
+useEffect(() => {
+  return () => stopExportPolling();
+}, []);
 
   // Clean up poll on unmount
   useEffect(() => {
@@ -2121,113 +2184,131 @@ useEffect(() => {
 </div>
 
       {/* Export buttons (only visible to admin roles) */}
-      {isAdmin ? (
+      <>
+  {/* Desktop */}
+  <div className="hidden sm:flex items-center gap-2">
+    {/* CSV for ALL */}
+    <button
+      onClick={exportCSV}
+      disabled={pageExporting}
+      className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
+        pageExporting ? "opacity-50 cursor-not-allowed" : ""
+      }`}
+    >
+      {activeExportBtn === "csv" ? (
         <>
-          <div className="hidden sm:flex items-center gap-2">
-            <button
-              onClick={exportCSV}
-              disabled={pageExporting}
-              className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
-                pageExporting ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              {activeExportBtn === "csv" ? (
-                <>
-                  <BtnSpinner />
-                  Exporting CSV…
-                </>
-              ) : (
-                "CSV"
-              )}
-            </button>
-
-
-              <button
-                onClick={exportExcel}
-                disabled={pageExporting}
-                className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
-                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                {activeExportBtn === "excel" ? (
-                  <>
-                    <BtnSpinner />
-                    Exporting Excel…
-                  </>
-                ) : (
-                  "Excel"
-                )}
-              </button>
-
-
-
-            {/* Export All Records (backend) */}
-            {/* <div className="inline-flex items-center gap-2">
-      <button
-        onClick={startExportJob}
-        disabled={exporting}
-        title="Export all records via backend (CSV)"
-        className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition
-          ${
-            exporting
-              ? "bg-slate-200 text-slate-600 cursor-not-allowed"
-              : "bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-      >
-        {exporting ? (
-          <>
-            <svg
-              className="animate-spin w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-              />
-            </svg>
-            <span>Exporting…</span>
-          </>
-        ) : (
-          <>
-            <File className="w-4 h-4" />
-            <span>Export All (CSV)</span>
-          </>
-        )}
-      </button>
-    </div> */}
-
-          </div>
-
-          {/* small responsive fallback for mobile */}
-          <div className="sm:hidden inline-flex items-center gap-1">
-            <button onClick={exportCSV} className="p-2 border rounded-md" title="CSV">
-              <Download className="w-4 h-4" />
-            </button>
-            <button onClick={exportExcel} className="p-2 border rounded-md" title="Excel">
-              <FileText className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => startExportJob("csv")}
-              disabled={exporting}
-              className="p-2 border rounded-md"
-              title="Export All (CSV)"
-            >
-              <File className="w-4 h-4" />
-            </button>
-          </div>
+          <BtnSpinner />
+          Exporting CSV…
         </>
-      ) : null}
+      ) : (
+        "CSV"
+      )}
+    </button>
+
+    {/* Excel for ALL */}
+    <button
+      onClick={exportExcel}
+      disabled={pageExporting}
+      className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
+        pageExporting ? "opacity-50 cursor-not-allowed" : ""
+      }`}
+    >
+      {activeExportBtn === "excel" ? (
+        <>
+          <BtnSpinner />
+          Exporting Excel…
+        </>
+      ) : (
+        "Excel"
+      )}
+    </button>
+
+    {/* Export All ONLY for admin */}
+    {isAdmin ? (
+      <div className="inline-flex items-center gap-2">
+        <button
+          // onClick={() => startExportJob("csv")}
+          disabled={exporting}
+          title="Export all Is Not Working Still IN progress ...."
+          // className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition ${
+          //   exporting
+          //     ? "bg-slate-200 text-slate-600 cursor-not-allowed"
+          //     : "bg-white text-slate-700 hover:bg-slate-50"
+          // }`}
+          className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition bg-slate-200 text-slate-600 cursor-not-allowed`}
+        >
+          {/* {exporting ? (
+            <>
+              <svg
+                className="animate-spin w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+              <span>Exporting…</span>
+            </>
+          ) : ( */}
+            <>
+              <File className="w-4 h-4" />
+              <span>Export All (CSV)</span>
+            </>
+          {/* )
+          } */}
+        </button>
+      </div>
+    ) : null}
+  </div>
+
+  {/* Mobile */}
+  <div className="sm:hidden inline-flex items-center gap-1">
+    {/* CSV for ALL */}
+    <button
+      onClick={exportCSV}
+      disabled={pageExporting}
+      className={`p-2 border rounded-md ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
+      title="CSV"
+    >
+      <Download className="w-4 h-4" />
+    </button>
+
+    {/* Excel for ALL */}
+    <button
+      onClick={exportExcel}
+      disabled={pageExporting}
+      className={`p-2 border rounded-md ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
+      title="Excel"
+    >
+      <FileText className="w-4 h-4" />
+    </button>
+
+    {/* Export All ONLY for admin */}
+    {isAdmin ? (
+      <button
+        onClick={() => startExportJob("csv")}
+        disabled={exporting}
+        className={`p-2 border rounded-md ${exporting ? "opacity-50 cursor-not-allowed" : ""}`}
+        title="Export All (CSV)"
+      >
+        <File className="w-4 h-4" />
+      </button>
+    ) : null}
+  </div>
+</>
+
     </div>
 
       </div>
