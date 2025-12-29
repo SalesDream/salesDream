@@ -1,0 +1,69 @@
+/* Admin Dashboard - updated sizes & header filters */
+.admin-wrap { max-width:1600px; margin:0 auto; color:#111827; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+.page-title { font-size:16px; font-weight:600; margin:12px 0 12px; color:#111827; }
+
+/* card */
+.table-card { background:#ffffff; border:1px solid #e6eef6; border-radius:8px; padding:8px; box-shadow: 0 1px 0 rgba(16,24,40,0.02); }
+
+/* table base */
+.admin-table { width:100%; border-collapse:collapse; font-size:13px; }
+.admin-table thead .head-row th { text-align:center; padding:8px 10px; font-weight:600; color:#374151; border-bottom:1px solid #eef2f6; vertical-align:top; }
+.admin-table tbody td { text-align:center;padding:6px 8px; border-bottom:1px solid #f4f7fb; color:#111827; vertical-align:middle; }
+
+/* column sizing (adjusted per request) */
+.col-id { width:80px; }                 /* decreased */
+.col-name { width:300px; }              /* decreased */
+.col-email { width:350px; }             /* decreased */
+.col-status { width:180px; }
+.col-sub { width:240px; }               /* increased */
+.col-expiry { width:260px; }            /* increased */
+.col-plan { width:150px; }
+.col-total, .col-used { width:170px;  }
+.col-action { width:220px;}
+
+/* header content container (title + filter inside header) */
+.th-content { display:flex; flex-direction:column; gap:4px; }
+.th-title { font-size:13px; color:#374151; }
+.th-filter { padding:1px 8px; border:1px solid #e6eef6; border-radius:6px; font-size:13px; width:100%; box-sizing:border-box; }
+.th-filter-select { padding:1px 8px; border:1px solid #e6eef6; border-radius:6px; font-size:13px; width:100%; box-sizing:border-box; }
+
+/* small disabled expiry filter styling (keeps thin look) */
+.th-filter[disabled] { background: #fafbfc; color:#9aa4b2; cursor:not-allowed; }
+
+/* badges - thin professional */
+.badge { display:inline-block; padding:1px 14px; border-radius:999px; font-size:12px; font-weight:600; text-transform:none; letter-spacing:0.1px; }
+.header-badge { padding:4px 8px; font-size:12px; }
+.badge.status-badge.active { background:#8ee49b; color:#0b8a3e; border:1px solid rgba(11,138,62,0.06); }
+.badge.status-badge.blocked { background:#dd635a; color:#b02a37; border:1px solid rgba(176,42,55,0.06); }
+
+/* smaller pill variants */
+.pill { padding:1px 14px; font-size:12px; border-radius:999px; }
+.active-sm { background:#f1fbf6; color:#0a7a36; border:1px solid rgba(10,122,54,0.06); }
+.muted-sm { background:#b3bbc4; color:#6b7280; border:1px solid rgba(0,0,0,0.04); }
+.blocked-sm { background:#eb6c6c; color:#b02a37; border:1px solid rgba(176,42,55,0.06); }
+.info-sm { background:#eef4ff; color:#0d4ad9; border:1px solid rgba(13,74,217,0.06); }
+.pro-sm { background:#f6f0ff; color:#6b2fb8; border:1px solid rgba(107,47,184,0.06); }
+.enterprise-sm { background:#e8fbf9; color:#0a8b80; border:1px solid rgba(10,139,128,0.06); }
+
+/* blocked row subtle background */
+.row-blocked { opacity:0.96; background: linear-gradient(90deg, rgba(255,250,250,0.5), transparent); }
+
+/* compact buttons */
+.btn { font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid #e6eef6; background:white; cursor:pointer; margin-left:6px; }
+.btn.small { padding:4px 12px; font-size:13px; }
+.btn.outline { background:transparent; border:1px solid #e6eef6; }
+.btn.danger { background:#d48a8a; border-color:#ffd6d6; color:#b02a37; }
+
+/* no results */
+.no-results { text-align:center; padding:18px; color:#6b7280; }
+
+/* responsive adjustments */
+@media (max-width: 980px){
+  .col-email { display:none; }
+  .col-expiry { display:none; }
+  .col-total, .col-used { display:none; }
+  .col-plan { display:none; }
+  .col-action { text-align:left; }
+}
+
+
