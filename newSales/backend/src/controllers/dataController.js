@@ -124,111 +124,43 @@ async function resolveIndices() {
 }
 
 /* =========================================================
-   Exact match helpers (filters MUST be exact)
+   ✅ FULL STRING PHRASE MATCH HELPERS
+   Requirement: match the full input string, not a single word.
    ========================================================= */
-function exactTextClauses(field, value) {
+
+// strict phrase clauses: keyword exact (case variants) + match_phrase
+function fullPhraseClauses(field, value) {
   const v = sanitizeQ(value);
   if (!v) return [];
 
-  // Try keyword, then plain term, then match_phrase
+  const upper = v.toUpperCase();
+  const lower = v.toLowerCase();
+
   return [
+    // Keyword exact (handles fields mapped as keyword or keyword subfield)
     { term: { [`${field}.keyword`]: v } },
-    { term: { [field]: v } },
+    { term: { [`${field}.keyword`]: upper } },
+    { term: { [`${field}.keyword`]: lower } },
+
+    // Phrase match on analyzed text fields (requires full phrase in order)
+    // This prevents "raton" matching when input is "boca raton"
     { match_phrase: { [field]: v } },
   ];
 }
 
-function exactAnyCaseField(field, value) {
+// add filter requiring full phrase match in ANY of the provided fields
+function addFullPhraseFilterShould(filterArr, fields, value) {
   const v = sanitizeQ(value);
-  if (!v) return null;
-  const upper = v.toUpperCase();
-  const lower = v.toLowerCase();
-  return {
-    bool: {
-      should: [
-        { term: { [`${field}.keyword`]: upper } },
-        { term: { [`${field}.keyword`]: lower } },
-        { term: { [field]: upper } },
-        { term: { [field]: lower } },
-        { match_phrase: { [field]: v } },
-      ],
-      minimum_should_match: 1,
-    },
-  };
-}
-
-/* =========================================================
-   Token contains helpers (for GLOBAL q only, unordered tokens)
-   Fixes: "inna mesh" should match even if order is "mesh inna"
-   ========================================================= */
-function splitTokens(value) {
-  const raw = sanitizeQ(value);
-  if (!raw) return [];
-  return raw
-    .split(/\s+/g)
-    .map((t) => t.trim())
-    .filter(Boolean);
-}
-
-function escapeLuceneRegex(value) {
-  return String(value).replace(/[.?+*|{}[\]()"'\\^$-]/g, "\\$&");
-}
-
-function containsTokenRegexp(field, token) {
-  const t = escapeLuceneRegex(token);
-  return {
-    regexp: {
-      [field]: {
-        value: `.*${t}.*`,
-        case_insensitive: true,
-      },
-    },
-  };
-}
-
-// For a single field, require ALL tokens (any order) inside that field
-function fieldContainsAllTokens(field, tokens) {
-  if (!tokens || !tokens.length) return null;
-  return {
-    bool: {
-      must: tokens.map((tok) => containsTokenRegexp(field, tok)),
-    },
-  };
-}
-
-// For global q: OR across fields, but inside a field, require all tokens
-function addGlobalQMust(mustArr, qVal) {
-  const tokens = splitTokens(qVal);
-  if (!tokens.length) return;
-
-  const Q_FIELDS = [
-    "merged.Name",
-    "merged.normalized_full_name",
-    "merged.Company",
-    "merged.normalized_company_name",
-    "merged.City",
-    "merged.Web_Address",
-    "merged.normalized_website",
-    "merged.Email",
-    "merged.normalized_email",
-    "linked.Full_name",
-    "linked.Industry",
-    "linked.Job_title",
-    "linked.Emails",
-    "linked.Company_Name",
-    "linked.Locality",
-    "linked.Skills",
-  ];
+  if (!v) return;
 
   const should = [];
-  for (const f of Q_FIELDS) {
-    const clause = fieldContainsAllTokens(f, tokens);
-    if (clause) should.push(clause);
+  for (const f of fields) {
+    should.push(...fullPhraseClauses(f, v));
   }
 
   if (!should.length) return;
 
-  mustArr.push({
+  filterArr.push({
     bool: {
       should,
       minimum_should_match: 1,
@@ -237,8 +169,7 @@ function addGlobalQMust(mustArr, qVal) {
 }
 
 /* =========================================================
-   normalized_email (exact first)
-   Must match: merged.Email OR merged.normalized_email OR linked.Emails OR linked.normalized_email
+   normalized_email (exact)
    ========================================================= */
 function normalizeEmailInput(v) {
   if (v === undefined || v === null) return "";
@@ -264,7 +195,10 @@ function addNormalizedEmailFilter(filterArr, normalizedEmailParam) {
 
   const should = [];
   for (const f of EMAIL_FIELDS) {
-    should.push(...exactTextClauses(f, emailQ));
+    // exact email match
+    should.push({ term: { [`${f}.keyword`]: emailQ } });
+    should.push({ term: { [f]: emailQ } });
+    should.push({ match_phrase: { [f]: emailQ } });
   }
 
   if (!should.length) return;
@@ -283,14 +217,11 @@ function addNormalizedEmailFilter(filterArr, normalizedEmailParam) {
 function normalizePhone(v) {
   const s = sanitizeQ(v);
   if (!s) return "";
-  // Keep digits only
-  const digits = s.replace(/[^\d]/g, "");
-  return digits;
+  return s.replace(/[^\d]/g, "");
 }
 
 function phoneClauses(field, digits) {
   if (!digits) return [];
-  // exact on keyword, and also allow wildcard for formats like "+1 (xxx) xxx-xxxx"
   return [
     { term: { [`${field}.keyword`]: digits } },
     { term: { [field]: digits } },
@@ -328,23 +259,19 @@ function addPhoneFilter(filterArr, phoneParam) {
 }
 
 /* =========================================================
-   domain filter (exact for domain; also matches inside full URL)
+   domain filter (exact domain; also matches inside full URL)
    ========================================================= */
 function normalizeDomain(v) {
   const s = sanitizeQ(v).toLowerCase();
   if (!s) return "";
-  // strip protocol
   let d = s.replace(/^https?:\/\//i, "");
-  // strip path
   d = d.split("/")[0];
-  // strip leading www.
   d = d.replace(/^www\./i, "");
   return d.trim();
 }
 
 function domainClauses(field, domain) {
   if (!domain) return [];
-  // exact on keyword and also allow wildcard for URLs
   return [
     { term: { [`${field}.keyword`]: domain } },
     { term: { [field]: domain } },
@@ -382,20 +309,41 @@ function addDomainFilter(filterArr, domainParam) {
 }
 
 /* =========================================================
-   Exact filter helper: should across multiple fields
+   ✅ GLOBAL q: FULL PHRASE ONLY (not token contains)
+   - Requirement: match full q string, not parts
    ========================================================= */
-function addExactFilterShould(filterArr, fields, value) {
-  const v = sanitizeQ(value);
+function addGlobalQMustFullPhrase(mustArr, qVal) {
+  const v = sanitizeQ(qVal);
   if (!v) return;
 
+  const Q_FIELDS = [
+    "merged.Name",
+    "merged.normalized_full_name",
+    "merged.Company",
+    "merged.normalized_company_name",
+    "merged.City",
+    "merged.Web_Address",
+    "merged.normalized_website",
+    "merged.Email",
+    "merged.normalized_email",
+    "linked.Full_name",
+    "linked.Industry",
+    "linked.Job_title",
+    "linked.Emails",
+    "linked.Company_Name",
+    "linked.Locality",
+    "linked.Skills",
+  ];
+
   const should = [];
-  for (const f of fields) {
-    should.push(...exactTextClauses(f, v));
+  for (const f of Q_FIELDS) {
+    // Full phrase across any ONE field
+    should.push(...fullPhraseClauses(f, v));
   }
 
   if (!should.length) return;
 
-  filterArr.push({
+  mustArr.push({
     bool: {
       should,
       minimum_should_match: 1,
@@ -405,38 +353,41 @@ function addExactFilterShould(filterArr, fields, value) {
 
 /* =========================================================
    Build Query:
-   - If q exists => MUST global match (unordered tokens)
-   - Then apply filters in FILTER[] (EXACT)
-   - If nothing => match_all
+   - If q exists => MUST full phrase match (in any 1 field)
+   - Filters => full phrase match (in any 1 of allowed fields)
    ========================================================= */
 function buildLeadsQuery(reqQuery) {
   const must = [];
   const filter = [];
 
-  /* ---------- 1) GLOBAL q (unordered tokens; fixes "inna mesh") ---------- */
+  /* ---------- 1) GLOBAL q (FULL PHRASE ONLY) ---------- */
   const qVal = sanitizeQ(reqQuery?.q);
-  if (qVal) addGlobalQMust(must, qVal);
+  if (qVal) addGlobalQMustFullPhrase(must, qVal);
 
-  /* ---------- 2) FILTERS (EXACT matching) ---------- */
+  /* ---------- 2) FILTERS ---------- */
   addNormalizedEmailFilter(filter, reqQuery?.normalized_email);
   addPhoneFilter(filter, reqQuery?.phone);
 
-  // domain (your SearchByDomain page)
+  // domain
   if (sanitizeQ(reqQuery?.domain)) {
     addDomainFilter(filter, reqQuery.domain);
   }
 
-  // company_name -> merged.Company, merged.normalized_company_name, linked.Company_Name
-  addExactFilterShould(
+  // company_name (FULL PHRASE)
+  addFullPhraseFilterShould(
     filter,
     ["merged.Company", "merged.normalized_company_name", "linked.Company_Name"],
     reqQuery?.company_name
   );
 
-  // city -> merged.City, linked.Locality
-  addExactFilterShould(filter, ["merged.City", "linked.Locality"], reqQuery?.city);
+  // city (FULL PHRASE)
+  addFullPhraseFilterShould(
+    filter,
+    ["merged.City", "linked.Locality", "merged.normalized_city", "linked.normalized_city"],
+    reqQuery?.city
+  );
 
-  // zip_code -> merged.Zip (exact first)
+  // zip_code (exact)
   if (sanitizeQ(reqQuery?.zip_code)) {
     const z = sanitizeQ(reqQuery.zip_code);
     filter.push({
@@ -451,21 +402,21 @@ function buildLeadsQuery(reqQuery) {
     });
   }
 
-  // website -> merged.Web_Address, merged.normalized_website
-  addExactFilterShould(
+  // website (FULL PHRASE)
+  addFullPhraseFilterShould(
     filter,
     ["merged.Web_Address", "merged.normalized_website", "linked.Company_Website"],
     reqQuery?.website
   );
 
-  // contact_full_name -> linked.Full_name, merged.Name, merged.normalized_full_name
-  addExactFilterShould(
+  // contact_full_name (FULL PHRASE)
+  addFullPhraseFilterShould(
     filter,
     ["linked.Full_name", "merged.Name", "merged.normalized_full_name"],
     reqQuery?.contact_full_name
   );
 
-  // state_code (comma list) -> merged.State, linked.normalized_state
+  // state_code (comma list) -> exact-ish, case variants (not phrase)
   const states = listFromComma(reqQuery?.state_code);
   if (states.length) {
     const shouldStates = [];
@@ -473,13 +424,19 @@ function buildLeadsQuery(reqQuery) {
       const stVal = sanitizeQ(st);
       if (!stVal) continue;
 
-      const t1 = exactAnyCaseField("merged.State", stVal);
-      const t2 = exactAnyCaseField("linked.normalized_state", stVal);
-      const t3 = exactAnyCaseField("merged.normalized_state", stVal);
+      const upper = stVal.toUpperCase();
+      const lower = stVal.toLowerCase();
 
-      if (t1) shouldStates.push(t1);
-      if (t2) shouldStates.push(t2);
-      if (t3) shouldStates.push(t3);
+      // strict state match
+      shouldStates.push({ term: { "merged.State.keyword": upper } });
+      shouldStates.push({ term: { "merged.State.keyword": lower } });
+      shouldStates.push({ term: { "linked.normalized_state.keyword": upper } });
+      shouldStates.push({ term: { "linked.normalized_state.keyword": lower } });
+      shouldStates.push({ term: { "merged.normalized_state.keyword": upper } });
+      shouldStates.push({ term: { "merged.normalized_state.keyword": lower } });
+      shouldStates.push({ match_phrase: { "merged.State": stVal } });
+      shouldStates.push({ match_phrase: { "linked.normalized_state": stVal } });
+      shouldStates.push({ match_phrase: { "merged.normalized_state": stVal } });
     }
 
     if (shouldStates.length) {
@@ -492,42 +449,40 @@ function buildLeadsQuery(reqQuery) {
     }
   }
 
-  // job_title -> linked.Job_title, merged.Title_Full
-  addExactFilterShould(
+  // job_title (FULL PHRASE)
+  addFullPhraseFilterShould(
     filter,
     ["linked.Job_title", "merged.Title_Full"],
     reqQuery?.job_title
   );
 
-  // skills (comma list or free text)
-  // If "skills" exists, treat as list; if "skills_tokens" exists, treat as contains-all-tokens inside linked.Skills
+  // skills (comma list): each item treated as FULL PHRASE inside Skills field
   const skills = listFromComma(reqQuery?.skills);
   if (skills.length) {
     const should = [];
     for (const sk of skills) {
       const v = sanitizeQ(sk);
       if (!v) continue;
-      should.push(...exactTextClauses("linked.Skills", v));
-      should.push(...exactTextClauses("merged.Skills", v));
+      should.push(...fullPhraseClauses("linked.Skills", v));
+      should.push(...fullPhraseClauses("merged.Skills", v));
     }
     if (should.length) {
       filter.push({ bool: { should, minimum_should_match: 1 } });
     }
   }
 
+  // skills_tokens (free text): FULL PHRASE ONLY (not tokens)
   if (sanitizeQ(reqQuery?.skills_tokens)) {
-    const toks = splitTokens(reqQuery.skills_tokens);
-    if (toks.length) {
-      filter.push({
-        bool: {
-          should: [
-            fieldContainsAllTokens("linked.Skills", toks),
-            fieldContainsAllTokens("merged.Skills", toks),
-          ].filter(Boolean),
-          minimum_should_match: 1,
-        },
-      });
-    }
+    const v = sanitizeQ(reqQuery.skills_tokens);
+    filter.push({
+      bool: {
+        should: [
+          ...fullPhraseClauses("linked.Skills", v),
+          ...fullPhraseClauses("merged.Skills", v),
+        ],
+        minimum_should_match: 1,
+      },
+    });
   }
 
   /* ---------- 3) Final query ---------- */
