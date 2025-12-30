@@ -35,27 +35,79 @@ import {
   MapPin as MapPinIcon,
   Download,
   FileText,
-  File
+  File,
 } from "lucide-react";
 
 /**
- * NOTE:
- * - Adds a Columns toggle UI (persistent via localStorage)
- * - Shows `--` for blank/null cell values across columns
- * - Keeps original behavior / layout / filtering
- * - Adds backend "Export All Records" job control (start / poll / download).
+ * Dashboard.jsx (Rebuilt)
+ * - Keeps existing UI/filters/grid/pagination/export-page features
+ * - Fixes Export All (backend job) flow:
+ *   - start job with current filters
+ *   - persist job across refresh (localStorage)
+ *   - poll status until done/error
+ *   - download CSV as blob
+ * - ✅ Adds full-page loader overlay for CSV/Excel page export until process completes
  */
 
 /* ---------- Small helpers ---------- */
 const toHeader = (s) =>
-  s.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+  String(s || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
 
-/* ---------- Static US state codes (requested static values) ---------- */
+/* ---------- Static US state codes ---------- */
 const US_STATES = [
-  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
-  "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
-  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT",
-  "VA","WA","WV","WI","WY","DC"
+  "AL",
+  "AK",
+  "AZ",
+  "AR",
+  "CA",
+  "CO",
+  "CT",
+  "DE",
+  "FL",
+  "GA",
+  "HI",
+  "ID",
+  "IL",
+  "IN",
+  "IA",
+  "KS",
+  "KY",
+  "LA",
+  "ME",
+  "MD",
+  "MA",
+  "MI",
+  "MN",
+  "MS",
+  "MO",
+  "MT",
+  "NE",
+  "NV",
+  "NH",
+  "NJ",
+  "NM",
+  "NY",
+  "NC",
+  "ND",
+  "OH",
+  "OK",
+  "OR",
+  "PA",
+  "RI",
+  "SC",
+  "SD",
+  "TN",
+  "TX",
+  "UT",
+  "VT",
+  "VA",
+  "WA",
+  "WV",
+  "WI",
+  "WY",
+  "DC",
 ];
 
 /* ---------- Small chip ---------- */
@@ -66,6 +118,7 @@ const Chip = ({ children, onRemove }) => (
       onClick={onRemove}
       className="text-blue-500 hover:text-blue-700"
       aria-label="Remove"
+      type="button"
     >
       ×
     </button>
@@ -73,7 +126,8 @@ const Chip = ({ children, onRemove }) => (
 );
 
 /* ---------- Compact sidebar typography ---------- */
-const labelCls = "block text-[10px] font-semibold text-slate-600 tracking-wide";
+const labelCls =
+  "block text-[10px] font-semibold text-slate-600 tracking-wide";
 const inputCls =
   "mt-1 h-7 w-full rounded-md border border-slate-300 px-2 text-[11px] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400";
 
@@ -90,7 +144,12 @@ const ToggleTri = ({ value, onChange }) => {
         <button
           key={o.key}
           onClick={() => onChange(o.key)}
-          className={`px-2 h-7 ${value === o.key ? "bg-sky-600 text-white" : "bg-white hover:bg-slate-50"}`}
+          className={`px-2 h-7 ${
+            value === o.key
+              ? "bg-sky-600 text-white"
+              : "bg-white hover:bg-slate-50"
+          }`}
+          type="button"
         >
           {o.label}
         </button>
@@ -100,10 +159,15 @@ const ToggleTri = ({ value, onChange }) => {
 };
 
 /* ---------- MultiSelect (lightweight) ---------- */
-function MultiSelect({ label, options = [], values = [], onChange, searchable = true }) {
+function MultiSelect({
+  label,
+  options = [],
+  values = [],
+  onChange,
+  searchable = true,
+}) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  // ensure values is always an array
   const curValues = Array.isArray(values) ? values : [];
 
   const filtered = useMemo(() => {
@@ -120,7 +184,6 @@ function MultiSelect({ label, options = [], values = [], onChange, searchable = 
     let next;
     if (has) next = existing.filter((v) => v !== val);
     else next = [...existing, val];
-    // dedupe defensively
     next = Array.from(new Set(next));
     onChange(next);
   };
@@ -170,12 +233,14 @@ function MultiSelect({ label, options = [], values = [], onChange, searchable = 
               <button
                 className="text-[10px] text-slate-600 hover:text-slate-900"
                 onClick={() => onChange([])}
+                type="button"
               >
                 Clear
               </button>
               <button
                 className="text-[10px] text-sky-600 hover:text-sky-800"
                 onClick={() => setOpen(false)}
+                type="button"
               >
                 Done
               </button>
@@ -241,192 +306,6 @@ function FilterSection({ icon: Icon, label, children, defaultOpen = false }) {
   );
 }
 
-/* ====== Filters Rail (narrower: 200px, compact fonts) ====== */
-function FiltersRail({ open, setOpen, f, setF, facets, onSearch, onClear }) {
-  return (
-    <div
-      className={`relative z-20 shrink-0 transition-all duration-200 ${
-        open ? "w-[220px]" : "w-0"
-      }`}
-    >
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="absolute -left-3 top-[5px] z-30 w-6 h-6 grid place-items-center rounded-full border bg-white shadow hover:bg-slate-50"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      )}
-
-      {open && (
-        /* 1. Use flex flex-col and h-full to constrain the container */
-        <aside className="relative h-full bg-white border rounded-xl shadow-md flex flex-col overflow-hidden">
-          <button
-            onClick={() => setOpen(false)}
-            className="absolute -right-3 top-[5px] z-30 w-6 h-6 grid place-items-center rounded-full border bg-white shadow hover:bg-slate-50"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          {/* FIXED HEADER */}
-          <div className="h-10 px-3 border-b flex items-center gap-2 text-[12px] font-semibold text-slate-700 shrink-0 bg-slate-50/50">
-            <FilterIcon className="w-4 h-4 text-slate-600" />
-            Filter
-          </div>
-
-          {/* 2. SCROLLABLE CONTENT AREA: Added flex-1 and min-h-0 */}
-          <div className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-2 custom-scrollbar">
-            {/* CONTACT */}
-            <FilterSection icon={User} label="Contact">
-              <TextInput
-                label="Contact Name"
-                value={f.contact_full_name}
-                onChange={(v) => setF((s) => ({ ...s, contact_full_name: v }))}
-              />
-            </FilterSection>
-
-            {/* LOCATION */}
-            <FilterSection icon={MapPin} label="Location">
-              <MultiSelect
-                label="State"
-                options={US_STATES}
-                values={f.state_code || []}
-                onChange={(v) => setF((s) => ({ ...s, state_code: v }))}
-              />
-              <TextInput
-                label="City"
-                value={f.city?.join(", ") || ""}
-                placeholder="e.g. New York, Austin"
-                onChange={(v) =>
-                  setF((s) => ({
-                    ...s,
-                    city: v.split(",").map(x => x.trim()).filter(Boolean),
-                  }))
-                }
-              />
-              <TextInput
-                label="ZIP Code"
-                value={f.zip_code || ""}
-                onChange={(v) => setF((s) => ({ ...s, zip_code: v }))}
-              />
-            </FilterSection>
-
-            {/* ROLE */}
-            <FilterSection icon={Briefcase} label="Role & Department">
-              <TextInput
-                label="Job Title"
-                value={f.job_title?.join(", ") || ""}
-                placeholder="e.g. CTO, HR Manager"
-                onChange={(v) =>
-                  setF((s) => ({
-                    ...s,
-                    job_title: v.split(",").map(x => x.trim()).filter(Boolean),
-                  }))
-                }
-              />
-            </FilterSection>
-
-            {/* SKILLS */}
-            <FilterSection icon={Tags} label="Skills">
-              <TextInput
-                label="Skills"
-                value={f.skills_tokens?.join(", ") || ""}
-                placeholder="e.g. React, Python"
-                onChange={(v) =>
-                  setF((s) => ({
-                    ...s,
-                    skills_tokens: v.split(",").map(x => x.trim()).filter(Boolean),
-                  }))
-                }
-              />
-            </FilterSection>
-
-            {/* COMPANY */}
-            <FilterSection icon={Building2} label="Company / Domain">
-              <TextInput
-                label="Company Name"
-                value={f.company_name?.join(", ") || ""}
-                onChange={(v) =>
-                  setF((s) => ({
-                    ...s,
-                    company_name: v.split(",").map(x => x.trim()).filter(Boolean),
-                  }))
-                }
-              />
-              <TextInput
-                label="Website / Domain"
-                value={f.website?.join(", ") || ""}
-                placeholder="example.com"
-                onChange={(v) =>
-                  setF((s) => ({
-                    ...s,
-                    website: v.split(",").map(x => x.trim()).filter(Boolean),
-                  }))
-                }
-              />
-              <div className="mt-2 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className={labelCls}>Public Company</span>
-                  <ToggleTri
-                    value={f.public_company}
-                    onChange={(v) => setF((s) => ({ ...s, public_company: v }))}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className={labelCls}>Franchise</span>
-                  <ToggleTri
-                    value={f.franchise_flag}
-                    onChange={(v) => setF((s) => ({ ...s, franchise_flag: v }))}
-                  />
-                </div>
-              </div>
-            </FilterSection>
-
-            {/* INDUSTRY */}
-            <FilterSection icon={Briefcase} label="Industry">
-              <TextInput
-                label="Industry"
-                value={f.industry?.join(", ") || ""}
-                placeholder="e.g. SaaS, FinTech"
-                onChange={(v) =>
-                  setF((s) => ({
-                    ...s,
-                    industry: v.split(",").map(x => x.trim()).filter(Boolean),
-                  }))
-                }
-              />
-              <TextInput
-                label="Industry Source"
-                value={f.industry_source || ""}
-                placeholder="Auto / A / B"
-                onChange={(v) => setF((s) => ({ ...s, industry_source: v }))}
-              />
-            </FilterSection>
-          </div>
-
-          {/* FIXED FOOTER ACTIONS: Kept outside the scrollable div for easy access */}
-          <div className="p-3 border-t bg-slate-50 shrink-0">
-            <button
-              onClick={onSearch}
-              className="w-full h-9 rounded-md bg-sky-600 text-white text-[12px] font-semibold hover:bg-sky-700 flex items-center justify-center gap-2 shadow-sm transition-colors"
-            >
-              <SearchIcon className="w-4 h-4" />
-              Search
-            </button>
-            <button
-              onClick={onClear}
-              className="w-full mt-2 text-[11px] text-slate-500 hover:text-red-600 font-medium transition-colors"
-            >
-              Clear All Filters
-            </button>
-          </div>
-        </aside>
-      )}
-    </div>
-  );
-}
-
-
 /* ---------- Hero ---------- */
 function Hero() {
   return (
@@ -480,27 +359,32 @@ function Spinner({ label = "Loading…" }) {
       aria-live="polite"
       aria-busy="true"
     >
-      <svg className="animate-spin h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a 8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
+      <svg
+        className="animate-spin h-8 w-8"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a 8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
+        />
       </svg>
       <span className="text-xs text-slate-600">{label}</span>
     </div>
   );
 }
 
-/* ---------- Helpers (same as before) ---------- */
-const maskEmail = (v) => {
-  if (!v) return "--";
-  const [u, d] = String(v).split("@");
-  if (!d) return "--";
-  return `${u.slice(0, 1)}••••@${d}`;
-};
-const maskPhone = (v) => {
-  if (!v) return "--";
-  const s = String(v).replace(/\D/g, "");
-  return s.length >= 3 ? `${s.slice(0, 3)}•••••••` : "--";
-};
+/* ---------- Cell helpers ---------- */
 const LinkCell = (p) => {
   const v = p.value ?? p.data?.[p.colDef.field];
   if (!v) return <span className="text-slate-400">--</span>;
@@ -518,6 +402,7 @@ const LinkCell = (p) => {
     </a>
   );
 };
+
 const DateCell = (p) => {
   const v = p.value ?? p.data?.[p.colDef.field];
   if (!v) return <span className="text-slate-400">--</span>;
@@ -525,6 +410,7 @@ const DateCell = (p) => {
   if (isNaN(d)) return <span className="text-slate-400">{String(v)}</span>;
   return d.toLocaleDateString();
 };
+
 const normalizeUrl = (v) => {
   if (!v) return null;
   const s = String(v).trim();
@@ -532,137 +418,114 @@ const normalizeUrl = (v) => {
   return /^https?:\/\//i.test(s) ? s : `https://${s}`;
 };
 
+function getNested(obj, path) {
+  if (!obj || !path) return undefined;
+  const parts = path.split(".");
+  let cur = obj;
+  for (const p of parts) {
+    if (cur && Object.prototype.hasOwnProperty.call(cur, p)) cur = cur[p];
+    else return undefined;
+  }
+  return cur;
+}
+
 /* ======================
-   MAIN Dashboard View (extended)
+   MAIN Dashboard View
    ====================== */
 export default function Dashboard() {
   const gridRef = useRef(null);
   const chipBarRef = useRef(null);
-  const pollRef = useRef(null); // for export polling
-  const [chipBarH, setChipBarH] = useState(0); // measured chip bar height
+  const exportPollRef = useRef(null);
+
+  const [chipBarH, setChipBarH] = useState(0);
 
   const [rowData, setRowData] = useState([]);
   const [viewRows, setViewRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedCount, setSelectedCount] = useState(0);
-  const [pageSize, setPageSize] = useState(100);
 
-  const [page, setPage] = useState(0); // zero-based page index for server pagination
+  // server pagination
+  const [pageSize, setPageSize] = useState(100);
+  const [page, setPage] = useState(0);
   const [totalHits, setTotalHits] = useState(0);
 
   const location = useLocation();
   const pathname = location.pathname || "/dashboard";
-  // Requested pagination sizes
-  const PAGE_OPTIONS = [100,200, 500, 1000];
+  const PAGE_OPTIONS = [100, 500, 1000,2000];
   const [pageOptionsOpen, setPageOptionsOpen] = useState(false);
-  // Quick search input for sidebar pages
-  const [quickInput, setQuickInput] = useState("");
 
-  // Email search input (top right)
+  // Top global search
+  const [globalSearch, setGlobalSearch] = useState("");
+
+  // Top email input (kept from your file)
   const [emailInput, setEmailInput] = useState("");
 
-  // Export job states
-  const [exportJob, setExportJob] = useState(null); // { jobId, status, file }
-  const [exportProgress, setExportProgress] = useState(0);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState(null);
+  // export page (client-side) states
   const [pageExporting, setPageExporting] = useState(false);
   const [pageExportProgress, setPageExportProgress] = useState(0);
   const [pageExportStatus, setPageExportStatus] = useState("");
   const [activeExportBtn, setActiveExportBtn] = useState(null);
-  const exportPollRef = useRef(null);
-  // Global search box
-const [globalSearch, setGlobalSearch] = useState("");
 
-// values: null | "csv" | "excel"
+  // backend Export All job states
+  const EXPORT_JOB_LS_KEY = "exportJobId";
+  const [exportJob, setExportJob] = useState(null);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
 
-const startExportAll = async () => {
-    try {
-      // ensure only admins can hit this; call will still return 403 if server denies
-      setExportJob(null);
-      setExporting(true);
+  // quick pages (kept)
+  const [quickInput, setQuickInput] = useState("");
 
-      // build filters same as when searching:
-      const mergedFilters = { ...f, q: globalSearch };   // ✅ ADD
-const params = buildQuery(mergedFilters);         // ✅ CHANGE
-params.limit = limit;
-params.offset = baseOffset + i * MAX;
+  // Auth
+  const token = useAuthToken();
+  if (!token) return <Navigate to="/login" replace />;
 
-      // send index and query in body; server expects { index, query, columns? }
-      const body = {
-        index: undefined, // optional: leave undefined to let server choose default indices
-        query: params && Object.keys(params).length ? undefined : { match_all: {} }, // we will transform below
-      };
+  // Filters rail open/close (kept)
+  const [filtersOpen, setFiltersOpen] = useState(() => {
+    const v = localStorage.getItem("leadFiltersCollapsed");
+    return v === "0" || v === null;
+  });
+  useEffect(() => {
+    localStorage.setItem("leadFiltersCollapsed", filtersOpen ? "0" : "1");
+  }, [filtersOpen]);
 
-      // Convert our buildQuery-style params into an ES query on the server.
-      // For simplicity: if you want server to build mapping-aware ES queries,
-      // you can send `filters` instead and server code can call buildESQuery.
-      // Here we send filters object so server can build query if you extend it.
-      body.filters = params;
+  // close dropdown on click outside
+  useEffect(() => {
+    if (!pageOptionsOpen) return;
+    const onDocClick = () => setPageOptionsOpen(false);
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [pageOptionsOpen]);
 
-      // send Authorization header (token) so server can check admin role
-      const tokenVal = token || localStorage.getItem('token') || '';
-      const headers = {};
-      if (tokenVal) headers['Authorization'] = `Bearer ${tokenVal}`;
-
-      const resp = await api.post('/api/export/start', body, { headers });
-      if (resp && resp.data && resp.data.jobId) {
-        setExportJob({ jobId: resp.data.jobId, downloadUrl: resp.data.downloadUrl });
-        // start polling
-        pollExportStatus(resp.data.jobId);
-      } else {
-        setExportJob({ error: 'Unexpected response from export start' });
-        setExporting(false);
-      }
-    } catch (err) {
-      console.error('startExportAll error', err);
-      const msg = err?.response?.data?.message || err.message || 'Export start failed';
-      setExportJob({ error: msg });
-      setExporting(false);
-    }
+  /* ====== Filters state ====== */
+  const initialFilters = {
+    state_code: [],
+    city: [],
+    zip_code: "",
+    company_location_country: [],
+    company_name: [],
+    industry: [],
+    industry_source: "",
+    skills_tokens: [],
+    website: [],
+    public_company: "any",
+    franchise_flag: "any",
+    employees: [],
+    sales_volume: [],
+    contact_full_name: "",
+    job_title: [],
+    contact_gender: [],
+    has_company_linkedin: "any",
+    has_contact_linkedin: "any",
+    phone: "",
+    normalized_email: "",
+    domain: [],
   };
 
-  const pollExportStatus = async (jobId) => {
-  const poll = async () => {
-    try {
-      const res = await api.get(`/api/export/status/${jobId}`);
-      const data = res.data;
+  const [f, setF] = useState(initialFilters);
+  const [hasApplied, setHasApplied] = useState(false);
 
-      setExportJob(data);
-
-      if (data.status === "running") {
-        setTimeout(poll, 1500);
-      } else {
-        setExporting(false);
-        localStorage.removeItem("exportJobId");
-      }
-    } catch (e) {
-      setExportError("Failed to fetch export status");
-      setExporting(false);
-    }
-  };
-
-  poll();
-};
-
-const BtnSpinner = () => (
-  <svg
-    className="animate-spin h-4 w-4"
-    viewBox="0 0 24 24"
-    fill="none"
-  >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    />
-  </svg>
-);
-
-  // measure chip bar height whenever it appears/changes
+  // measure chip bar height
   useEffect(() => {
     const el = chipBarRef.current;
     if (!el) {
@@ -680,66 +543,249 @@ const BtnSpinner = () => (
   const DUMMY_AVATAR =
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><circle cx="64" cy="64" r="64" fill="%23E5E7EB"/><circle cx="64" cy="48" r="24" fill="%23CBD5E1"/><path d="M16 112c8-24 32-32 48-32s40 8 48 32" fill="%23CBD5E1"/></svg>';
 
-  // Auth
-  const token = useAuthToken();
-  if (!token) return <Navigate to="/login" replace />;
+  // Admin check helper (kept)
+  const getUserRole = () => {
+    try {
+      const candidates = ["user", "profile", "authUser", "appUser", "currentUser"];
+      for (const key of candidates) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          if (!parsed) continue;
+          if (parsed.role) return String(parsed.role).toLowerCase();
+          if (parsed.user && parsed.user.role) return String(parsed.user.role).toLowerCase();
+          if (parsed.data && parsed.data.role) return String(parsed.data.role).toLowerCase();
+        } catch {}
+      }
 
-  // Filters rail open by default
-  const [filtersOpen, setFiltersOpen] = useState(() => {
-    const v = localStorage.getItem("leadFiltersCollapsed");
-    return v === "0" || v === null;
-  });
-  useEffect(() => {
-    localStorage.setItem("leadFiltersCollapsed", filtersOpen ? "0" : "1");
-  }, [filtersOpen]);
-
-
-  // optional: close dropdown when clicking outside (robust uses refs; this is simple)
-  useEffect(() => {
-    if (!pageOptionsOpen) return;
-    const onDocClick = (e) => {
-      setPageOptionsOpen(false);
-    };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, [pageOptionsOpen]);
-
-  /* ====== Filters state (adjusted for multi-selects) ====== */
-  const initialFilters = {
-    state_code: [],
-    city: [],
-    zip_code: "",
-    company_location_country: [],
-    company_name: [], // multi-select
-    industry: [],
-    industry_source: "",
-    skills_tokens: [],
-    website: [], // multi-select (website / domain)
-    public_company: "any",
-    franchise_flag: "any",
-    employees: [], // multi-select of merged.NumEmployees values
-    sales_volume: [], // multi-select of merged.SalesVolume values
-    contact_full_name: "", // text input
-    job_title: [],
-    contact_gender: [],
-    has_company_linkedin: "any",
-    has_contact_linkedin: "any",
-    // quick keys:
-    phone: "",
-    normalized_email: "",
-    domain: [],
+      if (token && typeof token === "string") {
+        try {
+          const parts = token.split(".");
+          if (parts.length >= 2) {
+            const payload = JSON.parse(
+              atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+            );
+            if (payload.role) return String(payload.role).toLowerCase();
+            if (payload.roles && Array.isArray(payload.roles) && payload.roles.length) {
+              return String(payload.roles[0]).toLowerCase();
+            }
+            if (payload.user && payload.user.role) {
+              return String(payload.user.role).toLowerCase();
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+    return null;
   };
-  const [f, setF] = useState(initialFilters);
-  const [hasApplied, setHasApplied] = useState(false);
 
-  // Facets (gathered from raw rows — uses merged/linked fields explicitly)
+  const role = getUserRole();
+  const isAdmin =
+    role &&
+    ["admin", "super_admin", "super-admin", "super admin", "superadmin"].includes(role);
+
+  /* ---------- Build query (for backend) ---------- */
+  const buildQuery = (filters) => {
+    const q = {};
+    const set = (k, v) => {
+      if (v === undefined || v === null) return;
+      if (typeof v === "string" && v.trim() === "") return;
+      if (Array.isArray(v) && v.length === 0) return;
+      q[k] = v;
+    };
+
+    set(
+      "company_name",
+      filters.company_name?.join ? filters.company_name.join(",") : filters.company_name
+    );
+    set("city", filters.city?.join ? filters.city.join(",") : filters.city);
+    set("zip_code", filters.zip_code);
+    set("website", filters.website?.join ? filters.website.join(",") : filters.website);
+    set("contact_full_name", filters.contact_full_name);
+
+    set(
+      "state_code",
+      filters.state_code?.join ? filters.state_code.join(",") : filters.state_code
+    );
+    set(
+      "company_location_country",
+      filters.company_location_country?.join
+        ? filters.company_location_country.join(",")
+        : filters.company_location_country
+    );
+    set("industry", filters.industry?.join ? filters.industry.join(",") : filters.industry);
+    set("industry_source", filters.industry_source || "");
+    set("job_title", filters.job_title?.join ? filters.job_title.join(",") : filters.job_title);
+    set(
+      "contact_gender",
+      filters.contact_gender?.join ? filters.contact_gender.join(",") : filters.contact_gender
+    );
+    set("skills", filters.skills_tokens?.join ? filters.skills_tokens.join(",") : filters.skills_tokens);
+
+    if (filters.public_company !== "any") set("public_company", filters.public_company);
+    if (filters.franchise_flag !== "any") set("franchise_flag", filters.franchise_flag);
+
+    set("employees", filters.employees?.join ? filters.employees.join(",") : filters.employees);
+    set("sales_volume", filters.sales_volume?.join ? filters.sales_volume.join(",") : filters.sales_volume);
+
+    set("phone", filters.phone);
+    set("normalized_email", filters.normalized_email);
+    set("domain", filters.domain?.join ? filters.domain.join(",") : filters.domain);
+
+    // global search
+    set("q", filters.q);
+
+    return q;
+  };
+
+  /* ---------- Normalize server row -> grid row ---------- */
+  const normalizeRow = (raw = {}) => {
+    const merged = raw.merged || {};
+    const linked = raw.linked || {};
+
+    const pick = (...keys) => {
+      for (const k of keys) {
+        if (!k) continue;
+        const v = k.includes(".")
+          ? k.split(".").reduce((o, p) => (o ? o[p] : undefined), raw)
+          : raw[k];
+        if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+      }
+      return "";
+    };
+
+    const id = raw._id || pick("id", "merged.id", "linked.id");
+
+    const fullName =
+      raw.name ||
+      pick("merged.normalized_full_name", "merged.Name", "linked.Full_name") ||
+      merged.normalized_full_name ||
+      merged.Name ||
+      linked.Full_name ||
+      "";
+
+    let first_name = "";
+    let last_name = "";
+    if (fullName && String(fullName).trim()) {
+      const parts = String(fullName).trim().split(/\s+/);
+      first_name = parts[0] || "";
+      last_name = parts.length > 1 ? parts.slice(1).join(" ") : "";
+    }
+
+    const name = fullName || "";
+
+    const company =
+      raw.company ||
+      pick("merged.Company", "merged.normalized_company_name", "linked.Company_Name") ||
+      merged.Company ||
+      merged.normalized_company_name ||
+      linked.Company_Name ||
+      "";
+
+    const job_title =
+      raw.job_title ||
+      pick("merged.Title_Full", "linked.Job_title") ||
+      merged.Title_Full ||
+      linked.Job_title ||
+      "";
+
+    const skill = raw.Skills || pick("linked.Skills") || linked.Skills || "";
+
+    const city =
+      raw.city ||
+      pick("merged.City", "linked.Locality") ||
+      merged.City ||
+      linked.Locality ||
+      "";
+
+    const state =
+      raw.state ||
+      pick("merged.State", "linked.normalized_state", "merged.normalized_state") ||
+      merged.State ||
+      linked.normalized_state ||
+      "";
+
+    const country =
+      raw.country ||
+      pick("merged.Country", "linked.Countries", "linked.Location_Country") ||
+      merged.Country ||
+      linked.Countries ||
+      linked.Location_Country ||
+      "";
+
+    const phone =
+      raw.phone ||
+      pick("merged.Telephone_Number", "merged.Phone", "linked.Phone_numbers", "linked.Mobile") ||
+      merged.Telephone_Number ||
+      merged.Phone ||
+      linked.Phone_numbers ||
+      linked.Mobile ||
+      "";
+
+    const email =
+      raw.email ||
+      pick("merged.normalized_email", "merged.Email", "linked.normalized_email", "linked.Emails") ||
+      merged.normalized_email ||
+      merged.Email ||
+      linked.normalized_email ||
+      linked.Emails ||
+      "";
+
+    const website =
+      raw.website ||
+      pick("linked.Company_Website", "merged.normalized_website", "merged.Web_Address") ||
+      linked.Company_Website ||
+      merged.normalized_website ||
+      merged.Web_Address ||
+      "";
+
+    const domain = raw.domain || website || "";
+
+    const employees = raw.employees || pick("merged.NumEmployees") || merged.NumEmployees || "";
+
+    const min_revenue = raw.min_revenue || pick("merged.SalesVolume") || merged.SalesVolume || "";
+    const max_revenue = min_revenue;
+
+    const linkedin_url =
+      raw.linkedin_url ||
+      pick("merged.Linkedin_URL", "linked.LinkedIn_URL") ||
+      merged.Linkedin_URL ||
+      linked.LinkedIn_URL ||
+      "";
+
+    return {
+      _id: id || raw._id,
+      id,
+      contact_name: name || "",
+      name,
+      first_name,
+      last_name,
+      company,
+      job_title,
+      skill,
+      city,
+      state,
+      country,
+      phone,
+      email,
+      website,
+      domain,
+      employees,
+      min_revenue,
+      max_revenue,
+      linkedin_url,
+      __raw: raw,
+    };
+  };
+
+  /* ---------- Facets (kept) ---------- */
   const facets = useMemo(() => {
     const uniq = (arr) =>
       Array.from(new Set(arr.filter(Boolean))).sort((a, b) =>
         String(a).localeCompare(String(b))
       );
 
-    // helper safe getter
     const get = (r, path) => {
       try {
         if (!r) return undefined;
@@ -755,7 +801,6 @@ const BtnSpinner = () => (
       }
     };
 
-    // collect arrays
     const states = [];
     const cities = [];
     const countries = [];
@@ -772,56 +817,66 @@ const BtnSpinner = () => (
       const merged = raw.merged || {};
       const linked = raw.linked || {};
 
-      // state: merged.normalized_state || merged.State || linked.normalized_state
-      const st = get(merged, "normalized_state") || get(merged, "State") || get(linked, "normalized_state") || row.state;
+      const st =
+        get(merged, "normalized_state") ||
+        get(merged, "State") ||
+        get(linked, "normalized_state") ||
+        row.state;
       if (st) states.push(String(st).trim());
 
-      // city: linked.Locality || merged.City
       const ct = get(linked, "Locality") || get(merged, "City") || row.city;
       if (ct) cities.push(String(ct).trim());
 
-      // country: merged.Country || linked.Countries || linked.Location_Country
-      const co = get(merged, "Country") || get(linked, "Countries") || get(linked, "Location_Country") || row.country;
+      const co =
+        get(merged, "Country") ||
+        get(linked, "Countries") ||
+        get(linked, "Location_Country") ||
+        row.country;
       if (co) countries.push(String(co).trim());
 
-      // job title: linked.Job_title
       const jt = get(linked, "Job_title") || row.job_title;
       if (jt) job_titles.push(String(jt).trim());
 
-      // skills: linked.Skills (may be comma/semicolon separated)
       const sk = get(linked, "Skills");
       if (sk) {
-        const toks = String(sk).split(/[;,]+/).map(s => s.trim()).filter(Boolean);
+        const toks = String(sk)
+          .split(/[;,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
         for (const t of toks) skills.push(t);
       }
 
-      // company: merged.Company || linked.Company_Name
       const comp = get(merged, "Company") || get(linked, "Company_Name") || row.company;
       if (comp) companies.push(String(comp).trim());
 
-      // website/domain: linked.Company_Website || merged.normalized_website || merged.Web_Address
-      const site = get(linked, "Company_Website") || get(merged, "normalized_website") || get(merged, "Web_Address") || row.website || row.domain;
+      const site =
+        get(linked, "Company_Website") ||
+        get(merged, "normalized_website") ||
+        get(merged, "Web_Address") ||
+        row.website ||
+        row.domain;
       if (site) websites.push(String(site).trim());
 
-      // employees options: merged.NumEmployees
       const emp = get(merged, "NumEmployees") || row.employees;
       if (emp) employees_options.push(String(emp).trim());
 
-      // revenue options: merged.SalesVolume
       const rev = get(merged, "SalesVolume") || row.min_revenue || row.max_revenue;
       if (rev) revenue_options.push(String(rev).trim());
 
-      // industries: prefer linked.Industry, linked.Industry_2, fallback to row.industry
       const indCandidates = [];
       const li = get(linked, "Industry");
       const li2 = get(linked, "Industry_2");
       if (li) indCandidates.push(li);
       if (li2) indCandidates.push(li2);
       if (row.industry) indCandidates.push(row.industry);
+
       for (const ii of indCandidates) {
-        // if comma-separated, split into tokens
         if (String(ii).includes(",")) {
-          String(ii).split(",").map(s => s.trim()).filter(Boolean).forEach(t => industries.push(t));
+          String(ii)
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .forEach((t) => industries.push(t));
         } else {
           industries.push(String(ii).trim());
         }
@@ -843,55 +898,7 @@ const BtnSpinner = () => (
     };
   }, [rowData]);
 
-  /* ====== Column definitions (compact) ====== */
-  // Helper: try multiple ways to find a user's role
-  const getUserRole = () => {
-    try {
-      // 1) Try common localStorage keys
-      const candidates = ['user', 'profile', 'authUser', 'appUser', 'currentUser'];
-      for (const key of candidates) {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        try {
-          const parsed = JSON.parse(raw);
-          if (!parsed) continue;
-          // common shapes: { role: 'admin' } or { user: { role: 'admin' } }
-          if (parsed.role) return String(parsed.role).toLowerCase();
-          if (parsed.user && parsed.user.role) return String(parsed.user.role).toLowerCase();
-          if (parsed.data && parsed.data.role) return String(parsed.data.role).toLowerCase();
-        } catch (e) {
-          // not JSON — skip
-        }
-      }
-
-      // 2) Try decoding JWT token payload (if token present)
-      if (token && typeof token === 'string') {
-        try {
-          const parts = token.split('.');
-          if (parts.length >= 2) {
-            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-            // payload might have role, roles, user.role
-            if (payload.role) return String(payload.role).toLowerCase();
-            if (payload.roles && Array.isArray(payload.roles) && payload.roles.length) {
-              // return first role
-              return String(payload.roles[0]).toLowerCase();
-            }
-            if (payload.user && payload.user.role) return String(payload.user.role).toLowerCase();
-          }
-        } catch (e) {
-          // ignore decode errors
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-    return null;
-  };
-
-  const role = getUserRole();
-  const isAdmin = role && ['admin', 'super_admin', 'super-admin', 'super admin', 'superadmin'].includes(role);
-
-  // People renderer (unchanged: shows avatar, full name, title, company, location)
+  /* ---------- People/Company/Contact renderers ---------- */
   const peopleCellRenderer = useCallback((params) => {
     const r = params.data || {};
     const name = (r.contact_name || r.name || "").trim();
@@ -975,11 +982,17 @@ const BtnSpinner = () => (
     const loc = [r.city, r.state, r.country].filter(Boolean).join(", ");
     return (
       <div className="py-1 min-w-0 leading-4">
-        <div className="font-medium text-[13px] text-slate-800 truncate" title={company || "--"}>
+        <div
+          className="font-medium text-[13px] text-slate-800 truncate"
+          title={company || "--"}
+        >
           {company || "--"}
         </div>
         {loc && (
-          <div className="mt-0 flex items-center gap-1 text-[11.5px] text-slate-600 truncate" title={loc}>
+          <div
+            className="mt-0 flex items-center gap-1 text-[11.5px] text-slate-600 truncate"
+            title={loc}
+          >
             <MapPinIcon className="w-3 h-3" />
             <span className="truncate">{loc}</span>
           </div>
@@ -1003,23 +1016,8 @@ const BtnSpinner = () => (
     );
   }, []);
 
-  // CONTACT: show full values and add copy buttons
   const contactCellRenderer = useCallback((params) => {
     const r = params.data || {};
-
-    const copyToClipboard = async (text, label) => {
-      try {
-        if (!text) return;
-        await navigator.clipboard.writeText(String(text));
-        // small visual feedback: use alert as simple fallback
-        // eslint-disable-next-line no-alert
-        alert(`${label} copied to clipboard`);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error("copy failed", e);
-      }
-    };
-
     const phoneVal = r.phone || "";
     const emailVal = r.email || "";
 
@@ -1028,9 +1026,7 @@ const BtnSpinner = () => (
         <div className="flex items-center gap-2 text-[12px] text-slate-700">
           <Phone className="w-3 h-3 text-slate-500" />
           {phoneVal ? (
-            <>
-              <span className="truncate">{phoneVal}</span>
-            </>
+            <span className="truncate">{phoneVal}</span>
           ) : (
             <span className="text-slate-400">--</span>
           )}
@@ -1038,9 +1034,7 @@ const BtnSpinner = () => (
         <div className="flex items-center gap-2 text-[12px] text-slate-700">
           <Mail className="w-3 h-3 text-slate-500" />
           {emailVal ? (
-            <>
-              <span className="truncate">{emailVal}</span>
-            </>
+            <span className="truncate">{emailVal}</span>
           ) : (
             <span className="text-slate-400">--</span>
           )}
@@ -1049,19 +1043,10 @@ const BtnSpinner = () => (
     );
   }, []);
 
-  // Base columns (unchanged except we keep People etc)
+  /* ---------- Columns ---------- */
   const baseColumns = useMemo(
     () => [
-      {
-        headerName: "",
-        field: "__sel__",
-        checkboxSelection: true,
-        headerCheckboxSelection: true,
-        maxWidth: 44,
-        suppressMenu: true,
-        pinned: "left",
-        resizable: false,
-      },
+     
       { headerName: "Employees", field: "employees", flex: 0.6, minWidth: 110, sortable: true },
       {
         headerName: "Revenue (Min–Max)",
@@ -1069,19 +1054,18 @@ const BtnSpinner = () => (
         flex: 0.8,
         minWidth: 160,
         valueGetter: (p) => {
-          const a = p.data?.min_revenue,
-            b = p.data?.max_revenue;
+          const a = p.data?.min_revenue;
+          const b = p.data?.max_revenue;
           return a || b ? `${a || "–"} – ${b || "–"}` : "";
         },
         sortable: true,
       },
     ],
-    [peopleCellRenderer, companyCellRenderer, contactCellRenderer]
+    []
   );
 
-  // Extra columns (same) — NOTE: removed "id" and added first_name, last_name
   const ALL_FIELDS = [
-    "name", // will show as "Full name"
+    "name",
     "first_name",
     "last_name",
     "phone",
@@ -1109,6 +1093,7 @@ const BtnSpinner = () => (
     "max_revenue",
     "created_at",
   ];
+
   const numericRight = new Set([
     "employees",
     "median_income_census_area",
@@ -1119,7 +1104,6 @@ const BtnSpinner = () => (
     "sic",
   ]);
 
-  // Exclude fields that are already present in baseColumns to avoid duplicates
   const excludeFromExtras = useMemo(() => {
     try {
       return new Set((baseColumns || []).map((c) => c.field).filter(Boolean));
@@ -1129,7 +1113,7 @@ const BtnSpinner = () => (
   }, [baseColumns]);
 
   const extraColumns = useMemo(() => {
-    return ALL_FIELDS.filter((f) => !excludeFromExtras.has(f)).map((field) => {
+    return ALL_FIELDS.filter((ff) => !excludeFromExtras.has(ff)).map((field) => {
       const def = {
         headerName: field === "name" ? "Full name" : toHeader(field),
         field,
@@ -1137,13 +1121,18 @@ const BtnSpinner = () => (
         sortable: true,
         cellRenderer: undefined,
         type: numericRight.has(field) ? "rightAligned" : undefined,
-        // default fallback formatter for blank/null values in these standard columns
         valueFormatter: (params) => {
           const v = params.value;
-          if (v === undefined || v === null || (typeof v === "string" && v.trim() === "")) return "--";
+          if (
+            v === undefined ||
+            v === null ||
+            (typeof v === "string" && v.trim() === "")
+          )
+            return "--";
           return v;
         },
       };
+
       if (["website", "domain", "linkedin_url", "facebook", "twitter"].includes(field)) {
         def.cellRenderer = LinkCell;
         def.minWidth = 180;
@@ -1152,26 +1141,22 @@ const BtnSpinner = () => (
         def.cellRenderer = DateCell;
         def.minWidth = 150;
       }
-      // For phone/email fields show raw value (we already have contact renderer but keep these as simple columns)
+
       return def;
     });
   }, [excludeFromExtras]);
 
-  // ---- NEW: desired column order ----
   const columnDefs = useMemo(() => {
-    // Build a map of all available column defs by field
     const allDefs = [...baseColumns, ...extraColumns];
     const defMap = new Map();
     for (const d of allDefs) {
       if (d && d.field) defMap.set(d.field, d);
     }
 
-    // Keep the selection column first (if present)
-    const selCol = defMap.get("__sel__") || (baseColumns && baseColumns.length ? baseColumns[0] : null);
+    const selCol = defMap.get("__sel__") || null;
 
-    // The exact desired sequence requested by the user:
     const desiredOrder = [
-      "name",        // Full Name
+      "name",
       "first_name",
       "last_name",
       "phone",
@@ -1188,28 +1173,25 @@ const BtnSpinner = () => (
       "facebook",
       "twitter",
       "sales_volume",
-      "max_revenue"
+      "max_revenue",
     ];
 
     const used = new Set();
     const finalCols = [];
 
-    // push selection column first
     if (selCol) {
       finalCols.push(selCol);
-      if (selCol.field) used.add(selCol.field);
+      used.add(selCol.field);
     }
 
-    // push desired ordered fields (only if we have definitions for them)
-    for (const f of desiredOrder) {
-      const d = defMap.get(f);
+    for (const f2 of desiredOrder) {
+      const d = defMap.get(f2);
       if (d) {
         finalCols.push(d);
-        used.add(f);
+        used.add(f2);
       }
     }
 
-    // append remaining columns that were not included above, preserving original order
     for (const d of allDefs) {
       if (!d || !d.field) continue;
       if (!used.has(d.field)) {
@@ -1221,232 +1203,220 @@ const BtnSpinner = () => (
     return finalCols;
   }, [baseColumns, extraColumns]);
 
-  // defaultColDef includes a valueFormatter that returns -- for blank values,
-  // but custom cellRenderers (people/company/contact) already handle fallbacks.
   const defaultColDef = useMemo(
     () => ({
       sortable: true,
       resizable: true,
       suppressHeaderMenuButton: true,
       valueFormatter: (params) => {
-        // Keep cellRenderer output unchanged (AG uses cellRenderer over valueFormatter),
-        // but if there's no renderer and blank value, show '--'
-        if (params && (params.value === undefined || params.value === null || (typeof params.value === "string" && params.value.trim() === ""))) return "--";
+        if (
+          params &&
+          (params.value === undefined ||
+            params.value === null ||
+            (typeof params.value === "string" && params.value.trim() === ""))
+        )
+          return "--";
         return params && params.value !== undefined ? params.value : "";
       },
     }),
     []
   );
 
-  /* ---------- Build query ---------- */
-  const buildQuery = (filters) => {
-    const q = {};
-    const set = (k, v) => {
-      if (v === undefined || v === null) return;
-      if (typeof v === "string" && v.trim() === "") return;
-      if (Array.isArray(v) && v.length === 0) return;
-      q[k] = v;
-    };
+  /* ---------- Hidden columns controls ---------- */
+  const [hiddenCols, setHiddenCols] = useState(() => {
+    try {
+      const v = localStorage.getItem("dashboard_hidden_columns");
+      return v ? JSON.parse(v) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [colsOpen, setColsOpen] = useState(false);
 
-    set("company_name", filters.company_name && filters.company_name.join ? filters.company_name.join(",") : filters.company_name);
-    set("city", filters.city && filters.city.join ? filters.city.join(",") : filters.city);
-    set("zip_code", filters.zip_code);
-    set("website", filters.website && filters.website.join ? filters.website.join(",") : filters.website);
-    set("contact_full_name", filters.contact_full_name);
-
-    set("state_code", filters.state_code && filters.state_code.join ? filters.state_code.join(",") : filters.state_code);
-    set("company_location_country", filters.company_location_country && filters.company_location_country.join ? filters.company_location_country.join(",") : filters.company_location_country);
-    set("industry", filters.industry && filters.industry.join ? filters.industry.join(",") : filters.industry);
-    set("industry_source", filters.industry_source || "");
-    set("job_title", filters.job_title && filters.job_title.join ? filters.job_title.join(",") : filters.job_title);
-    set("contact_gender", filters.contact_gender && filters.contact_gender.join ? filters.contact_gender.join(",") : filters.contact_gender);
-    set("skills", filters.skills_tokens && filters.skills_tokens.join ? filters.skills_tokens.join(",") : filters.skills_tokens);
-
-    if (filters.public_company !== "any") set("public_company", filters.public_company);
-    if (filters.franchise_flag !== "any") set("franchise_flag", filters.franchise_flag);
-
-    // employees and revenue (sent as CSV lists)
-    set("employees", filters.employees && filters.employees.join ? filters.employees.join(",") : filters.employees);
-    set("sales_volume", filters.sales_volume && filters.sales_volume.join ? filters.sales_volume.join(",") : filters.sales_volume);
-
-    // quick keys (phone, email, domain)
-    set("phone", filters.phone);
-    set("normalized_email", filters.normalized_email);
-    set("domain", filters.domain && filters.domain.join ? filters.domain.join(",") : filters.domain);
-    set("q", filters.q);
-
-    return q;
-  };
-
-  // -----------------------
-  // Normalize server row -> grid row
-  // -----------------------
-  const normalizeRow = (raw = {}) => {
-    const merged = raw.merged || {};
-    const linked = raw.linked || {};
-
-    // Helper to pick the first non-empty value
-    const pick = (...keys) => {
-      for (const k of keys) {
-        if (!k) continue;
-        const v = k.includes(".")
-          ? k.split(".").reduce((o, p) => (o ? o[p] : undefined), raw)
-          : raw[k];
-        if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+  const allColumnItems = useMemo(() => {
+    const map = new Map();
+    (columnDefs || []).forEach((c) => {
+      if (!c || !c.field) return;
+      if (!map.has(c.field)) {
+        map.set(c.field, {
+          field: c.field,
+          headerName: c.headerName || toHeader(c.field),
+        });
       }
-      return "";
-    };
+    });
+    return Array.from(map.values());
+  }, [columnDefs]);
 
-    const id = raw._id || pick("id", "merged.id", "linked.id");
-    const fullName =
-      raw.name ||
-      pick("merged.normalized_full_name", "merged.Name", "linked.Full_name") ||
-      merged.normalized_full_name ||
-      merged.Name ||
-      linked.Full_name ||
-      "";
-    // split fullName into first & last (basic heuristic)
-    let first_name = "";
-    let last_name = "";
-    if (fullName && String(fullName).trim()) {
-      const parts = String(fullName).trim().split(/\s+/);
-      first_name = parts[0] || "";
-      last_name = parts.length > 1 ? parts.slice(1).join(" ") : "";
-    }
+  useEffect(() => {
+    try {
+      localStorage.setItem("dashboard_hidden_columns", JSON.stringify(hiddenCols || []));
+    } catch {}
 
-    const name = fullName || "";
+    if (!gridRef.current?.columnApi) return;
+    const allFields = allColumnItems.map((c) => c.field);
+    allFields.forEach((field) => {
+      try {
+        const visible = !(hiddenCols || []).includes(field);
+        gridRef.current.columnApi.setColumnVisible(field, visible);
+      } catch {}
+    });
+  }, [hiddenCols, allColumnItems]);
 
-    const company =
-      raw.company ||
-      pick("merged.Company", "merged.normalized_company_name", "linked.Company_Name") ||
-      merged.Company ||
-      merged.normalized_company_name ||
-      linked.Company_Name ||
-      "";
-    const job_title =
-      raw.job_title ||
-      pick("merged.Title_Full", "linked.Job_title") ||
-      merged.Title_Full ||
-      linked.Job_title ||
-      "";
-
-      const skill =
-      raw.Skills ||
-      pick("linked.Skills") ||
-      linked.Skills||
-      "";
-    const city =
-      raw.city ||
-      pick("merged.City", "linked.Locality") ||
-      merged.City ||
-      linked.Locality ||
-      "";
-    const state =
-      raw.state ||
-      pick("merged.State", "linked.normalized_state", "merged.normalized_state") ||
-      merged.State ||
-      linked.normalized_state ||
-      "";
-    const country =
-      raw.country ||
-      pick("merged.Country", "linked.Countries", "linked.Location_Country") ||
-      merged.Country ||
-      linked.Countries ||
-      linked.Location_Country ||
-      "";
-    const phone =
-      raw.phone ||
-      pick("merged.Telephone_Number", "merged.Phone", "linked.Phone_numbers", "linked.Mobile") ||
-      merged.Telephone_Number ||
-      merged.Phone ||
-      linked.Phone_numbers ||
-      linked.Mobile ||
-      "";
-    const email =
-      raw.email ||
-      pick("merged.normalized_email", "merged.Email", "linked.normalized_email", "linked.Emails") ||
-      merged.normalized_email ||
-      merged.Email ||
-      linked.normalized_email ||
-      linked.Emails ||
-      "";
-    const website =
-      raw.website ||
-      pick("linked.Company_Website", "merged.normalized_website", "merged.Web_Address") ||
-      linked.Company_Website ||
-      merged.normalized_website ||
-      merged.Web_Address ||
-      "";
-    const domain = raw.domain || website || "";
-    const employees =
-      raw.employees ||
-      pick("merged.NumEmployees") ||
-      merged.NumEmployees ||
-      "";
-    const min_revenue =
-      raw.min_revenue ||
-      pick("merged.SalesVolume") ||
-      merged.SalesVolume ||
-      "";
-    const max_revenue = min_revenue;
-    const linkedin_url =
-      raw.linkedin_url ||
-      pick("merged.Linkedin_URL", "linked.LinkedIn_URL") ||
-      merged.Linkedin_URL ||
-      linked.LinkedIn_URL ||
-      "";
-
-    return {
-      _id: id || raw._id,
-      id,
-      contact_name: name || "",
-      name,
-      first_name,
-      last_name,
-      company,
-      job_title,
-      skill,
-      city,
-      state,
-      country,
-      phone,
-      email,
-      website,
-      domain,
-      employees,
-      min_revenue,
-      max_revenue,
-      linkedin_url,
-      __raw: raw,
-    };
+  const toggleColumn = (field) => {
+    setHiddenCols((prev) => {
+      const isHidden = (prev || []).includes(field);
+      if (isHidden) return (prev || []).filter((f3) => f3 !== field);
+      return [...(prev || []), field];
+    });
   };
 
-  // helper for nested safe-get (used occasionally)
-  function getNested(obj, path) {
-    if (!obj || !path) return undefined;
-    const parts = path.split('.');
-    let cur = obj;
-    for (const p of parts) {
-      if (cur && Object.prototype.hasOwnProperty.call(cur, p)) cur = cur[p];
-      else return undefined;
-    }
-    return cur;
-  }
+  const selectAllColumns = () => setHiddenCols([]);
+  const clearAllColumns = () => setHiddenCols(allColumnItems.map((c) => c.field));
+  const resetColumns = () => {
+    setHiddenCols([]);
+    try {
+      localStorage.removeItem("dashboard_hidden_columns");
+    } catch {}
+  };
 
- /* ---------- Server-paginated fetch for a specific page ---------- */
+  const isColumnVisible = (field) => !(hiddenCols || []).includes(field);
+
+  /* ---------- Grid selection ---------- */
+  const onSelectionChanged = useCallback(() => {
+    const count = gridRef.current?.api?.getSelectedNodes()?.length || 0;
+    setSelectedCount(count);
+  }, []);
+
+  const onGridReady = useCallback(() => {
+    try {
+      const stored = localStorage.getItem("dashboard_hidden_columns");
+      const hidden = stored ? JSON.parse(stored) : [];
+      if (Array.isArray(hidden) && hidden.length && gridRef.current?.columnApi) {
+        hidden.forEach((field) => {
+          try {
+            gridRef.current.columnApi.setColumnVisible(field, false);
+          } catch {}
+        });
+      }
+    } catch {}
+  }, []);
+
+  /* ---------- Active chips ---------- */
+  const activeChips = useMemo(() => {
+    const chips = [];
+    const seen = new Set();
+    const push = (label, onRemove) => {
+      if (seen.has(label)) return;
+      seen.add(label);
+      chips.push({ label, onRemove });
+    };
+
+    if (f.state_code?.length) {
+      f.state_code.forEach((v) =>
+        push(`State: ${v}`, () =>
+          setF((s) => ({ ...s, state_code: s.state_code.filter((x) => x !== v) }))
+        )
+      );
+    }
+
+    if (f.company_location_country?.length) {
+      f.company_location_country.forEach((v) =>
+        push(`Country: ${v}`, () =>
+          setF((s) => ({
+            ...s,
+            company_location_country: s.company_location_country.filter((x) => x !== v),
+          }))
+        )
+      );
+    }
+
+    if (f.industry?.length) {
+      f.industry.forEach((v) =>
+        push(`Industry: ${v}`, () =>
+          setF((s) => ({ ...s, industry: s.industry.filter((x) => x !== v) }))
+        )
+      );
+    }
+
+    if (f.industry_source) {
+      push(`Industry Source: ${f.industry_source}`, () =>
+        setF((s) => ({ ...s, industry_source: "" }))
+      );
+    }
+
+    if (f.contact_full_name) {
+      push(`Contact ~ ${f.contact_full_name}`, () =>
+        setF((s) => ({ ...s, contact_full_name: "" }))
+      );
+    }
+
+    if (f.skills_tokens?.length) {
+      f.skills_tokens.forEach((v) =>
+        push(`Skill: ${v}`, () =>
+          setF((s) => ({ ...s, skills_tokens: s.skills_tokens.filter((x) => x !== v) }))
+        )
+      );
+    }
+
+    if (f.employees?.length) {
+      f.employees.forEach((v) =>
+        push(`Employees: ${v}`, () =>
+          setF((s) => ({ ...s, employees: s.employees.filter((x) => x !== v) }))
+        )
+      );
+    }
+
+    if (f.sales_volume?.length) {
+      f.sales_volume.forEach((v) =>
+        push(`Revenue: ${v}`, () =>
+          setF((s) => ({ ...s, sales_volume: s.sales_volume.filter((x) => x !== v) }))
+        )
+      );
+    }
+
+    if (f.phone) push(`Phone: ${f.phone}`, () => setF((s) => ({ ...s, phone: "" })));
+    if (f.normalized_email)
+      push(`Email: ${f.normalized_email}`, () =>
+        setF((s) => ({ ...s, normalized_email: "" }))
+      );
+
+    if (f.domain?.length) {
+      f.domain.forEach((v) =>
+        push(`Domain: ${v}`, () =>
+          setF((s) => ({ ...s, domain: s.domain.filter((x) => x !== v) }))
+        )
+      );
+    }
+
+    if (globalSearch?.trim()) {
+      push(`Q: ${globalSearch.trim()}`, () => setGlobalSearch(""));
+    }
+
+    return chips;
+  }, [f, globalSearch]);
+
+  /* ---------- Quick-search pages (kept) ---------- */
+  const quickMap = {
+    "/search-phone": {
+      key: "phone",
+      placeholder: "Enter phone (e.g. +1 415 555 0123 or 4155550123)",
+    },
+    "/search-area-code": { key: "phone", placeholder: "Enter area code (e.g. 415)" },
+    "/search-email": { key: "normalized_email", placeholder: "Enter email or partial (e.g. alice@, @gmail.com)" },
+    "/search-domain": { key: "domain", placeholder: "Enter domain or website (e.g. example.com)" },
+    "/search-name": { key: "contact_full_name", placeholder: "Enter full or partial name (e.g. John Smith)" },
+  };
+  const isQuickPage = pathname !== "/dashboard" && quickMap[pathname];
+
+  /* ---------- Server-paginated fetch ---------- */
   const fetchPage = async (pageNumber = 0, overrides = {}) => {
-    // Ensure the UI renders the grid and overlay on first search click:
     setHasApplied(true);
     setLoading(true);
 
     try {
-      // Merge filters: base filters `f` plus `overrides`.
-      // The order below means `overrides` will take precedence.
-      // const mergedFilters = { ...f, ...overrides };
       const mergedFilters = { ...f, ...overrides, q: globalSearch };
-      
 
-      // If user typed email in top box, prefer that and sync to filter state
+      // If user typed email in top box, sync to filter + use it
       if (emailInput && emailInput.trim() !== "") {
         mergedFilters.normalized_email = emailInput.trim();
         setF((s) => ({ ...s, normalized_email: emailInput.trim() }));
@@ -1459,20 +1429,20 @@ const BtnSpinner = () => (
       const res = await api.get("/api/data/leads", { params });
       const payload = res?.data ?? {};
 
-      // response shape: { meta: { total }, data: [...] } OR array
       let hits = [];
       let total = 0;
+
       if (Array.isArray(payload)) {
         hits = payload;
         total = payload.length;
       } else {
-        hits = Array.isArray(payload.data) ? payload.data : []; 
+        hits = Array.isArray(payload.data) ? payload.data : [];
         const metaTotal = payload.meta && (payload.meta.total || payload.meta.count);
-        total = (metaTotal !== undefined && metaTotal !== null) ? metaTotal : hits.length;
+        total = metaTotal !== undefined && metaTotal !== null ? metaTotal : hits.length;
       }
 
       const normalized = hits.map((h) => normalizeRow(h));
-      setRowData(normalized); // keep last fetched page as rowData
+      setRowData(normalized);
       setViewRows(normalized);
       setSelectedCount(0);
       setPage(pageNumber);
@@ -1488,141 +1458,37 @@ const BtnSpinner = () => (
     }
   };
 
-  /* ---------- Search handlers ---------- */
-  // const runSearch = async () => {
-  //   // run fresh search with page=0
-  //   await fetchPage(0);
-  // };
   const runSearch = async () => {
-  await fetchPage(0, { q: globalSearch });
-};
+    await fetchPage(0, { q: globalSearch });
+  };
 
-
-  // supply overrides directly into fetchPage to avoid stale-setF
   const runSearchWithOverrides = async (overrides, pageNumber = 0) => {
     setF((s) => ({ ...s, ...overrides }));
     await fetchPage(pageNumber, overrides);
   };
 
   const clearFilters = () => {
-  setF(initialFilters);
-  setGlobalSearch("");            // ✅ ADD THIS
-  setRowData([]);
-  setViewRows([]);
-  setHasApplied(false);
-  setSelectedCount(0);
-  setTotalHits(0);
-  setPage(0);
-  setEmailInput("");
-};
-
-
-  // selection
-  const onSelectionChanged = useCallback(() => {
-    const count = gridRef.current?.api?.getSelectedNodes()?.length || 0;
-    setSelectedCount(count);
-  }, []);
-
-  // when grid ready, restore hidden columns from localStorage (or state)
-  const onGridReady = useCallback(() => {
-    try {
-      const stored = localStorage.getItem("dashboard_hidden_columns");
-      const hidden = stored ? JSON.parse(stored) : [];
-      if (Array.isArray(hidden) && hidden.length && gridRef.current?.columnApi) {
-        hidden.forEach((field) => {
-          try {
-            gridRef.current.columnApi.setColumnVisible(field, false);
-          } catch (e) {
-            // ignore missing fields
-          }
-        });
-      }
-    } catch (e) {
-      // ignore parse errors
-    }
-  }, []);
-
-  // -----------------------
-  // Active chips (include phone / email / domain)
-  // -----------------------
-  const activeChips = useMemo(() => {
-    const chips = [];
-    const seen = new Set();
-    const push = (label, onRemove) => {
-      if (seen.has(label)) return;
-      seen.add(label);
-      chips.push({ label, onRemove });
-    };
-
-    if (f.state_code && f.state_code.length)
-      f.state_code.forEach((v) =>
-        push(`State: ${v}`, () => setF((s) => ({ ...s, state_code: s.state_code.filter((x) => x !== v) })))
-      );
-    if (f.company_location_country && f.company_location_country.length)
-      f.company_location_country.forEach((v) =>
-        push(
-          `Country: ${v}`,
-          () => setF((s) => ({ ...s, company_location_country: s.company_location_country.filter((x) => x !== v) }))
-        )
-      );
-    if (f.industry && f.industry.length)
-      f.industry.forEach((v) =>
-        push(`Industry: ${v}`, () => setF((s) => ({ ...s, industry: s.industry.filter((x) => x !== v) })))
-      );
-    if (f.industry_source) push(`Industry Source: ${f.industry_source}`, () => setF((s) => ({ ...s, industry_source: "" })));
-
-    if (f.contact_full_name)
-      push(`Contact ~ ${f.contact_full_name}`, () => setF((s) => ({ ...s, contact_full_name: "" })));
-    if (f.skills_tokens && f.skills_tokens.length)
-      f.skills_tokens.forEach((v) =>
-        push(
-          `Skill: ${v}`,
-          () => setF((s) => ({ ...s, skills_tokens: s.skills_tokens.filter((x) => x !== v) }))
-        )
-      );
-    if (f.employees && f.employees.length)
-      f.employees.forEach((v) =>
-        push(`Employees: ${v}`, () => setF((s) => ({ ...s, employees: s.employees.filter((x) => x !== v) })))
-      );
-    if (f.sales_volume && f.sales_volume.length)
-      f.sales_volume.forEach((v) =>
-        push(`Revenue: ${v}`, () => setF((s) => ({ ...s, sales_volume: s.sales_volume.filter((x) => x !== v) })))
-      );
-
-    // Quick search chips
-    if (f.phone) push(`Phone: ${f.phone}`, () => setF((s) => ({ ...s, phone: "" })));
-    if (f.normalized_email) push(`Email: ${f.normalized_email}`, () => setF((s) => ({ ...s, normalized_email: "" })));
-    if (f.domain && f.domain.length) f.domain.forEach((v) => push(`Domain: ${v}`, () => setF((s) => ({ ...s, domain: s.domain.filter(x => x !== v) }))));
-
-    return chips;
-  }, [f]);
-
-  // ---- Dynamic grid height so footer never gets covered ----
-  const GRID_BASE =10000; // original target height
-  const gridHeight = Math.max(470, GRID_BASE - (hasApplied && activeChips.length ? chipBarH : 0));
-
-  // -----------------------
-  // Quick-search route mapping
-  // -----------------------
-  const quickMap = {
-    "/search-phone": { key: "phone", placeholder: "Enter phone (e.g. +1 415 555 0123 or 4155550123)" },
-    "/search-area-code": { key: "phone", placeholder: "Enter area code (e.g. 415)" },
-    "/search-email": { key: "normalized_email", placeholder: "Enter email or partial (e.g. alice@, @gmail.com)" },
-    "/search-domain": { key: "domain", placeholder: "Enter domain or website (e.g. example.com)" },
-    "/search-name": { key: "contact_full_name", placeholder: "Enter full or partial name (e.g. John Smith)" },
+    setF(initialFilters);
+    setGlobalSearch("");
+    setRowData([]);
+    setViewRows([]);
+    setHasApplied(false);
+    setSelectedCount(0);
+    setTotalHits(0);
+    setPage(0);
+    setEmailInput("");
   };
-  const isQuickPage = pathname !== "/dashboard" && quickMap[pathname];
 
-  // Handler for Quick Search input
   const handleQuickSearch = () => {
     if (!isQuickPage) return;
     const { key } = quickMap[pathname];
     const overrides = {};
-    overrides[key] = quickInput;
+    if (key === "domain") overrides[key] = [quickInput];
+    else overrides[key] = quickInput;
     runSearchWithOverrides(overrides);
   };
 
-  // Pagination controls (Prev/Next)
+  // pagination controls
   const totalPages = Math.max(1, Math.ceil((totalHits || 0) / pageSize));
   const onPrev = () => {
     if (page <= 0) return;
@@ -1633,223 +1499,21 @@ const BtnSpinner = () => (
     fetchPage(page + 1);
   };
 
-  // When pageSize changes, refetch from page 0
   useEffect(() => {
     if (!hasApplied) return;
     fetchPage(0);
   }, [pageSize]);
 
-  // human-friendly total display; if backend is capped at 10000, show "10,000+"
   const totalHitsDisplay = useMemo(() => {
     if (!totalHits) return "0";
     if (totalHits >= 10000) return `${Number(totalHits).toLocaleString()}+`;
     return Number(totalHits).toLocaleString();
   }, [totalHits]);
 
-  /* ---------- COLUMN VISIBILITY CONTROLS ---------- */
-  // store set of hidden column fields in local state
-  const [hiddenCols, setHiddenCols] = useState(() => {
-    try {
-      const v = localStorage.getItem("dashboard_hidden_columns");
-      return v ? JSON.parse(v) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  // Columns dropdown open state
-  const [colsOpen, setColsOpen] = useState(false);
-
-  // Build list of visible/hidden items from columnDefs
-  // NOTE: deduplicate by `field` to avoid duplicate keys in the rendered checkbox list.
-  const allColumnItems = useMemo(() => {
-    const map = new Map();
-    (columnDefs || []).forEach((c) => {
-      if (!c || !c.field) return;
-      if (!map.has(c.field)) {
-        map.set(c.field, { field: c.field, headerName: c.headerName || toHeader(c.field) });
-      }
-      // if the field already exists, we keep first occurrence (baseColumns first)
-    });
-    return Array.from(map.values());
-  }, [columnDefs]);
-
-  // Update AG Grid and localStorage when hiddenCols changes
-  useEffect(() => {
-    try {
-      localStorage.setItem("dashboard_hidden_columns", JSON.stringify(hiddenCols || []));
-    } catch (e) {
-      // ignore
-    }
-    if (!gridRef.current?.columnApi) return;
-    // iterate all columnDefs fields and set visibility based on hiddenCols
-    const allFields = allColumnItems.map((c) => c.field);
-    allFields.forEach((field) => {
-      try {
-        const visible = !(hiddenCols || []).includes(field);
-        gridRef.current.columnApi.setColumnVisible(field, visible);
-      } catch (e) {
-        // ignore
-      }
-    });
-  }, [hiddenCols, allColumnItems]);
-
-  const toggleColumn = (field) => {
-    setHiddenCols((prev) => {
-      const isHidden = (prev || []).includes(field);
-      if (isHidden) {
-        // remove from hidden => show
-        const next = (prev || []).filter((f) => f !== field);
-        return next;
-      } else {
-        // add to hidden => hide
-        return [...(prev || []), field];
-      }
-    });
-  };
-
-  const selectAllColumns = () => {
-    // Clear hiddenCols (all visible)
-    setHiddenCols([]);
-    // Ensure grid shows all
-    if (gridRef.current?.columnApi) {
-      allColumnItems.forEach((c) => {
-        try {
-          gridRef.current.columnApi.setColumnVisible(c.field, true);
-        } catch {}
-      });
-    }
-  };
-
-  const clearAllColumns = () => {
-    // Hide all columns that have a field (you might want to keep selection column visible; change if desired)
-    const toHide = allColumnItems.map((c) => c.field);
-    setHiddenCols(toHide);
-    if (gridRef.current?.columnApi) {
-      toHide.forEach((f) => {
-        try {
-          gridRef.current.columnApi.setColumnVisible(f, false);
-        } catch {}
-      });
-    }
-  };
-
-  // helper to check if a column is currently checked (visible)
-  const isColumnVisible = (field) => {
-    return !(hiddenCols || []).includes(field);
-  };
-
-  const resetColumns = () => {
-    setHiddenCols([]);
-    // ensure grid shows all
-    if (gridRef.current?.columnApi) {
-      columnDefs.forEach((c) => {
-        if (c.field) {
-          try {
-            gridRef.current.columnApi.setColumnVisible(c.field, true);
-          } catch { }
-        }
-      });
-    }
-    try {
-      localStorage.removeItem("dashboard_hidden_columns");
-    } catch {}
-  };
-
   /* =======================
-     EXPORT HELPERS (client-side CSV/Excel)
+     EXPORT HELPERS (page CSV/Excel)
      ======================= */
-// Fetch full visible page in backend-safe chunks (max 1000 per request)
-const fetchVisiblePageRows = async (onProgress) => {
-  const MAX = 1000; // backend hard limit
-  const needed = pageSize;
-  const baseOffset = page * pageSize;
 
-  const totalBatches = Math.ceil(needed / MAX);
-  const all = [];
-
-  for (let i = 0; i < totalBatches; i++) {
-    const limit = Math.min(MAX, needed - i * MAX);
-
-   const mergedFilters = { ...f, q: globalSearch };   // ✅ ADD
-const params = buildQuery(mergedFilters);         // ✅ CHANGE
-params.limit = limit;
-params.offset = baseOffset + i * MAX;
-
-
-    onProgress?.({
-      batch: i + 1,
-      total: totalBatches,
-      percent: Math.round(((i + 1) / totalBatches) * 100),
-    });
-
-    const res = await api.get("/api/data/leads", { params });
-    const rows = (res?.data?.data || []).map(normalizeRow);
-
-    all.push(...rows);
-
-    if (rows.length < limit) break; // no more rows
-  }
-
-  return all;
-};
-
-
-  // Get ordered visible columns (returns array of {field, headerName})
-  const getVisibleColumnsOrdered = () => {
-    try {
-      // prefer columnApi to get current visible order/visibility
-      const colApi = gridRef.current?.columnApi;
-      if (colApi && typeof colApi.getAllDisplayedColumns === "function") {
-        const displayed = colApi.getAllDisplayedColumns(); // array of Column objects
-        return displayed
-          .map((c) => {
-            const def = c.getColDef ? c.getColDef() : c.colDef;
-            return { field: def?.field || def?.colId || "", headerName: def?.headerName || toHeader(def?.field || def?.colId || "") };
-          })
-          .filter((x) => x.field); // filter out columns with no field (e.g. selection if anonymous)
-      }
-    } catch (e) {
-      // fall back
-    }
-    // fallback: use columnDefs and hiddenCols
-    return (columnDefs || [])
-      .filter((c) => c && c.field && !(hiddenCols || []).includes(c.field))
-      .map((c) => ({ field: c.field, headerName: c.headerName || toHeader(c.field) }));
-  };
-
-  // Build export-ready 2D array (headers + rows). Use raw values from viewRows[field]
-  const buildExportRows = () => {
-    const cols = getVisibleColumnsOrdered();
-    const headers = cols.map((c) => c.headerName || toHeader(c.field));
-    const rows = (viewRows || []).map((r) => {
-      return cols.map((c) => {
-        const field = c.field;
-        // attempt to read value; fall back to nested path if provided
-        let val = r && Object.prototype.hasOwnProperty.call(r, field) ? r[field] : undefined;
-        // if undefined and field looks nested (contains '.'), resolve
-        if ((val === undefined || val === null) && field && field.includes('.')) {
-          val = getNested(r, field);
-        }
-        // if still undefined, try fallback lookups for common possibilities
-        if (val === undefined || val === null) {
-          val = "";
-        }
-        // convert arrays/objects to JSON/text
-        if (typeof val === "object") {
-          try {
-            val = JSON.stringify(val);
-          } catch {
-            val = String(val);
-          }
-        }
-        return val;
-      });
-    });
-    return { headers, rows, cols };
-  };
-
-  // Download helper
   const downloadFile = (blob, filename) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1861,667 +1525,869 @@ params.offset = baseOffset + i * MAX;
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
-  // Export CSV
- const exportCSV = async () => {
-  try {
-    setActiveExportBtn("csv");
-    setPageExporting(true);
-    setPageExportProgress(0);
-    setPageExportStatus("Starting export…");
+  const fetchVisiblePageRows = async (onProgress) => {
+    const MAX = 1000; // safe chunk size
+    const needed = pageSize;
+    const baseOffset = page * pageSize;
 
-    const rows = await fetchVisiblePageRows((p) => {
-      setPageExportProgress(p.percent);
-      setPageExportStatus(`Fetching ${p.batch} / ${p.total} batches…`);
-    });
+    const totalBatches = Math.ceil(needed / MAX);
+    const all = [];
 
-    const cols = getVisibleColumnsOrdered();
-    const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    for (let i = 0; i < totalBatches; i++) {
+      const limit = Math.min(MAX, needed - i * MAX);
 
-    const csv = [
-      cols.map(c => escape(c.headerName)).join(","),
-      ...rows.map(r => cols.map(c => escape(r[c.field])).join(","))
-    ].join("\r\n");
+      const mergedFilters = { ...f, q: globalSearch };
+      const params = buildQuery(mergedFilters);
+      params.limit = limit;
+      params.offset = baseOffset + i * MAX;
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    downloadFile(blob, `leads_page_${page + 1}.csv`);
-  } finally {
-    // small delay so user visually sees completion
-    setTimeout(() => {
+      onProgress?.({
+        batch: i + 1,
+        total: totalBatches,
+        percent: Math.round(((i + 1) / totalBatches) * 100),
+      });
+
+      const res = await api.get("/api/data/leads", { params });
+      const rows = (res?.data?.data || []).map(normalizeRow);
+
+      all.push(...rows);
+
+      if (rows.length < limit) break;
+    }
+
+    return all;
+  };
+
+  const getVisibleColumnsOrdered = () => {
+    try {
+      const colApi = gridRef.current?.columnApi;
+      if (colApi && typeof colApi.getAllDisplayedColumns === "function") {
+        const displayed = colApi.getAllDisplayedColumns();
+        return displayed
+          .map((c) => {
+            const def = c.getColDef ? c.getColDef() : c.colDef;
+            return {
+              field: def?.field || def?.colId || "",
+              headerName:
+                def?.headerName || toHeader(def?.field || def?.colId || ""),
+            };
+          })
+          .filter((x) => x.field);
+      }
+    } catch {}
+
+    return (columnDefs || [])
+      .filter((c) => c && c.field && !(hiddenCols || []).includes(c.field))
+      .map((c) => ({
+        field: c.field,
+        headerName: c.headerName || toHeader(c.field),
+      }));
+  };
+
+  const BtnSpinner = () => (
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+    </svg>
+  );
+
+  const exportCSV = async () => {
+    try {
+      setActiveExportBtn("csv");
+      setPageExporting(true);
+      setPageExportProgress(0);
+      setPageExportStatus("Starting export…");
+
+      const rows = await fetchVisiblePageRows((p) => {
+        setPageExportProgress(p.percent);
+        setPageExportStatus(`Fetching ${p.batch} / ${p.total} batches…`);
+      });
+
+      setPageExportProgress(100);
+      setPageExportStatus("Generating CSV…");
+
+      const cols = getVisibleColumnsOrdered();
+      const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+      const csv = [
+        cols.map((c) => escape(c.headerName)).join(","),
+        ...rows.map((r) => cols.map((c) => escape(r[c.field])).join(",")),
+      ].join("\r\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      downloadFile(blob, `leads_page_${page + 1}.csv`);
+    } finally {
+      // ✅ keep loader until the process truly ends
       setActiveExportBtn(null);
       setPageExporting(false);
       setPageExportProgress(0);
       setPageExportStatus("");
-    }, 400);
-  }
-};
-
-
-
-
-  // Export Excel (.xls using HTML table blob) - simple and works with Excel
- const exportExcel = async () => {
-  try {
-    setActiveExportBtn("excel");
-    setPageExporting(true);
-    setPageExportProgress(0);
-    setPageExportStatus("Starting export…");
-
-    const rows = await fetchVisiblePageRows((p) => {
-      setPageExportProgress(p.percent);
-      setPageExportStatus(`Fetching ${p.batch} / ${p.total} batches…`);
-    });
-
-    const cols = getVisibleColumnsOrdered();
-
-    let html = `<table border="1"><tr>`;
-    html += cols.map(c => `<th>${c.headerName}</th>`).join("");
-    html += `</tr>`;
-
-    rows.forEach(r => {
-      html += `<tr>`;
-      cols.forEach(c => html += `<td>${r[c.field] ?? ""}</td>`);
-      html += `</tr>`;
-    });
-
-    html += `</table>`;
-
-    const blob = new Blob([html], {
-      type: "application/vnd.ms-excel",
-    });
-
-    downloadFile(blob, `leads_page_${page + 1}.xls`);
-  } finally {
-    setTimeout(() => {
-      setActiveExportBtn(null);
-      setPageExporting(false);
-      setPageExportProgress(0);
-      setPageExportStatus("");
-    }, 400);
-  }
-};
-
-
-
-  /* ================
-     BACKEND EXPORT (Export All Records job)
-     ================ */
-const beginExportPolling = (jobId) => {
-  stopExportPolling();
-
-  exportPollRef.current = setInterval(async () => {
-    try {
-      const resp = await api.get(`/api/exports/status/${jobId}`); // <-- update route if different
-      const data = resp?.data || {};
-
-      // Expected: { status: "running|completed|failed", progress: 0-100, file?: "path" }
-      const status = data.status || "running";
-      const progress = Number.isFinite(data.progress) ? data.progress : 0;
-
-      setExportJob((prev) => ({ ...(prev || {}), jobId, ...data }));
-      setExportProgress(progress);
-
-      if (status === "completed") {
-        setExporting(false);
-        stopExportPolling();
-
-        // optional: auto-download if backend gives file url/path
-        // if (data.file) downloadExportFile(data.file);
-      }
-
-      if (status === "failed") {
-        setExporting(false);
-        setExportError(data.error || "Export failed.");
-        stopExportPolling();
-      }
-    } catch (e) {
-      // If polling fails, stop it and reset (prevents infinite "in progress")
-      const msg = e?.response?.data?.message || e?.message || "Export status check failed.";
-      setExportError(msg);
-      setExporting(false);
-      stopExportPolling();
-    }
-  }, 1500);
-};
-
-const stopExportPolling = () => {
-  if (exportPollRef.current) {
-    clearInterval(exportPollRef.current);
-    exportPollRef.current = null;
-  }
-};
-
-  // Start export job on server. format = 'csv' | 'xls'
-  // Start backend export
-const startExportJob = async (format = "csv") => {
-  try {
-    setExportError("");
-    setExportProgress(0);
-
-    // IMPORTANT: don't show "exporting" until backend confirms job started
-    setExporting(false);
-    setExportJob(null);
-
-    // Call backend to create job
-    const resp = await api.post("/api/exports/start", { format }); // <-- update route if different
-
-    const jobId = resp?.data?.jobId;
-    if (!jobId) {
-      throw new Error("Export job did not start (jobId missing).");
-    }
-
-    // Now we can show exporting UI
-    setExporting(true);
-    setExportJob({ jobId, status: "running" });
-
-    // Start polling
-    beginExportPolling(jobId);
-  } catch (e) {
-    const msg = e?.response?.data?.message || e?.message || "Failed to start export.";
-    setExportError(msg);
-    setExporting(false);
-    setExportJob(null);
-    setExportProgress(0);
-    stopExportPolling();
-  }
-};
-
-
-
-// Poll job status
-// cls
-
-// Restore after refresh
-useEffect(() => {
-  const jobId = localStorage.getItem("exportJobId");
-  if (jobId) pollExportStatus(jobId);
-}, []);
-
-  // const pollExportStatus = async (jobId) => {
-  //   // clear previous poll if present
-  //   if (pollRef.current) {
-  //     clearInterval(pollRef.current);
-  //     pollRef.current = null;
-  //   }
-
-  //   // immediate fetch then interval
-  //   const fetchStatus = async () => {
-  //     try {
-  //       const resp = await api.get(`/api/export/status/${encodeURIComponent(jobId)}`);
-  //       const data = resp?.data || {};
-  //       const status = data.status || data.state || "running";
-  //       const progress = typeof data.progress === "number" ? data.progress : (data.percent || 0);
-  //       const file = data.file || data.result_file || null;
-
-  //       setExportJob((s) => ({ ...(s || {}), jobId, status, file }));
-  //       setExportProgress(Number(progress) || 0);
-
-  //       if (status === "completed" || status === "done" || status === "finished") {
-  //         // stop polling
-  //         if (pollRef.current) {
-  //           clearInterval(pollRef.current);
-  //           pollRef.current = null;
-  //         }
-  //         setExporting(false);
-  //         setExportProgress(100);
-  //         return;
-  //       }
-
-  //       if (status === "failed" || status === "error") {
-  //         if (pollRef.current) {
-  //           clearInterval(pollRef.current);
-  //           pollRef.current = null;
-  //         }
-  //         setExporting(false);
-  //         setExportError(data.error || "Export failed on server");
-  //         return;
-  //       }
-  //       // otherwise keep polling
-  //     } catch (err) {
-  //       console.error("pollExportStatus error", err);
-  //       // Don't immediately bail — record error and continue polling a few times.
-  //       setExportError(err && err.message ? err.message : "Status poll failed");
-  //     }
-  //   };
-
-  //   // first call immediately
-  //   fetchStatus();
-
-  //   // then set interval (every 3s)
-  //   pollRef.current = setInterval(fetchStatus, 3000);
-  // };
-
-  // Download completed file (open in new tab or stream)
-  const downloadExportFile = async (filePath) => {
-    if (!filePath) return;
-    try {
-      // Try to download via API (preserve auth) as blob
-      const resp = await api.get(`/api/export/download/${encodeURIComponent(filePath)}`, { responseType: "blob" });
-      const contentDisposition = (resp.headers && (resp.headers["content-disposition"] || resp.headers["Content-Disposition"])) || "";
-      let filename = filePath.split("/").pop();
-      // attempt to parse filename from content-disposition
-      const match = /filename\*?=(?:UTF-8'')?["']?([^;"']+)/i.exec(contentDisposition);
-      if (match && match[1]) filename = decodeURIComponent(match[1]);
-      downloadFile(resp.data, filename);
-    } catch (err) {
-      console.error("downloadExportFile error", err);
-      // fallback: open direct link in new tab (if server exposes public path)
-      const base = (api && api.defaults && api.defaults.baseURL) ? api.defaults.baseURL.replace(/\/$/, "") : "";
-      const url = `${base}/api/export/download/${encodeURIComponent(filePath)}`;
-      window.open(url, "_blank");
     }
   };
 
-  // Cancel export polling & clear state
- const cancelExport = async () => {
-  try {
-    const jobId = exportJob?.jobId;
-    if (!jobId) return;
+  const exportExcel = async () => {
+    try {
+      setActiveExportBtn("excel");
+      setPageExporting(true);
+      setPageExportProgress(0);
+      setPageExportStatus("Starting export…");
 
-    await api.post(`/api/exports/cancel/${jobId}`);
-  } catch (e) {
-    // ignore
-  } finally {
-    setExporting(false);
-    setExportJob(null);
-    setExportProgress(0);
-    stopExportPolling();
-  }
-};
+      const rows = await fetchVisiblePageRows((p) => {
+        setPageExportProgress(p.percent);
+        setPageExportStatus(`Fetching ${p.batch} / ${p.total} batches…`);
+      });
 
-useEffect(() => {
-  return () => stopExportPolling();
-}, []);
+      setPageExportProgress(100);
+      setPageExportStatus("Generating Excel…");
 
-  // Clean up poll on unmount
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = null;
-    };
-  }, []);
+      const cols = getVisibleColumnsOrdered();
+
+      let html = `<table border="1"><tr>`;
+      html += cols.map((c) => `<th>${c.headerName}</th>`).join("");
+      html += `</tr>`;
+
+      rows.forEach((r) => {
+        html += `<tr>`;
+        cols.forEach((c) => {
+          const val = r[c.field] ?? "";
+          html += `<td>${String(val)
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")}</td>`;
+        });
+        html += `</tr>`;
+      });
+
+      html += `</table>`;
+
+      const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+      downloadFile(blob, `leads_page_${page + 1}.xls`);
+    } finally {
+      // ✅ keep loader until the process truly ends
+      setActiveExportBtn(null);
+      setPageExporting(false);
+      setPageExportProgress(0);
+      setPageExportStatus("");
+    }
+  };
 
   /* =======================
-     RENDER
+     ✅ BACKEND EXPORT ALL (job)
      ======================= */
+
+  const stopExportPolling = () => {
+    if (exportPollRef.current) {
+      clearInterval(exportPollRef.current);
+      exportPollRef.current = null;
+    }
+  };
+
+  const pollExportStatus = async (jobId) => {
+    stopExportPolling();
+
+    exportPollRef.current = setInterval(async () => {
+      try {
+        const resp = await api.get(`/api/export/status/${jobId}`);
+        const data = resp?.data || {};
+
+        setExportJob(data);
+        setExportProgress(Number(data.progress || 0));
+        setExporting(data.status === "running");
+
+        if (data.status === "done") {
+          setExporting(false);
+          stopExportPolling();
+        }
+
+        if (data.status === "error") {
+          setExporting(false);
+          setExportError(data.error || "Export failed");
+          stopExportPolling();
+          localStorage.removeItem(EXPORT_JOB_LS_KEY);
+        }
+      } catch (e) {
+        setExporting(false);
+        setExportError(
+          e?.response?.data?.message || e?.message || "Failed to fetch export status"
+        );
+        stopExportPolling();
+        localStorage.removeItem(EXPORT_JOB_LS_KEY);
+      }
+    }, 1500);
+  };
+
+  const startExportAllCSV = async () => {
+    try {
+      setExportError(null);
+      setExportProgress(0);
+      setExportJob(null);
+
+      const mergedFilters = { ...f, q: globalSearch };
+      const filtersPayload = buildQuery(mergedFilters);
+
+      setExporting(true);
+
+      const tokenVal = token || localStorage.getItem("token") || "";
+      const headers = tokenVal ? { Authorization: `Bearer ${tokenVal}` } : {};
+
+      const resp = await api.post(
+        "/api/export/start",
+        { filters: filtersPayload },
+        { headers }
+      );
+
+      const jobId = resp?.data?.jobId;
+      if (!jobId) throw new Error("jobId missing from export start response");
+
+      localStorage.setItem(EXPORT_JOB_LS_KEY, jobId);
+
+      await pollExportStatus(jobId);
+    } catch (e) {
+      setExportError(
+        e?.response?.data?.message || e?.message || "Failed to start export"
+      );
+      setExporting(false);
+      setExportJob(null);
+      setExportProgress(0);
+      localStorage.removeItem(EXPORT_JOB_LS_KEY);
+    }
+  };
+
+  const downloadExportByJobId = async (jobId) => {
+    if (!jobId) return;
+    try {
+      const tokenVal = token || localStorage.getItem("token") || "";
+      const headers = tokenVal ? { Authorization: `Bearer ${tokenVal}` } : {};
+
+      const resp = await api.get(`/api/export/download/${jobId}`, {
+        responseType: "blob",
+        headers,
+      });
+
+      const cd =
+        resp?.headers?.["content-disposition"] ||
+        resp?.headers?.["Content-Disposition"] ||
+        "";
+
+      let filename = "leads_export.csv";
+      const match = /filename\*?=(?:UTF-8'')?["']?([^;"']+)/i.exec(cd);
+      if (match && match[1]) filename = decodeURIComponent(match[1]);
+
+      downloadFile(resp.data, filename);
+
+      localStorage.removeItem(EXPORT_JOB_LS_KEY);
+      setExportJob(null);
+      setExportProgress(0);
+      setExporting(false);
+      setExportError(null);
+    } catch (e) {
+      setExportError(
+        e?.response?.data?.message || e?.message || "Download failed"
+      );
+    }
+  };
+
+  // restore export job after refresh
+  useEffect(() => {
+    const saved = localStorage.getItem(EXPORT_JOB_LS_KEY);
+    if (saved) {
+      setExporting(true);
+      pollExportStatus(saved);
+    }
+    return () => stopExportPolling();
+  }, []);
+
+  // cleanup polling on unmount
+  useEffect(() => {
+    return () => stopExportPolling();
+  }, []);
+
+  /* ---------- Page options dropdown safety ---------- */
+  useEffect(() => {
+    if (!colsOpen) return;
+    const onDoc = () => setColsOpen(false);
+    document.addEventListener("click", onDoc);
+    return () => document.removeEventListener("click", onDoc);
+  }, [colsOpen]);
+
+  /* ---------- Render ---------- */
   return (
-  <div className="h-[calc(96vh-0px)] flex">
-    {/* Common filters (shared UI across pages) */}
-    <CommonFilters
-      open={filtersOpen}
-      setOpen={setFiltersOpen}
-      f={f}
-      setF={setF}
-      onSearch={runSearch}
-      onClear={clearFilters}
-    />
+    <div className="h-[calc(96vh-0px)] flex">
+      {/* Left filters (your shared UI) */}
+      <CommonFilters
+        open={filtersOpen}
+        setOpen={setFiltersOpen}
+        f={f}
+        setF={setF}
+        onSearch={runSearch}
+        onClear={clearFilters}
+      />
 
-    {/* main column now a vertical flex so footer sits at bottom */}
-    <main className="flex-1 px-2 pt-0 pb-6 -mt-3 flex flex-col">
-      <div className="mb-1 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Lead Finder</h1>
-        </div>
-
-        {/* Header controls: Rows selector + Columns filter + Export buttons */}
-        <div className="flex items-center gap-2">
-          <div className="relative">
-  <input
-    type="text"
-    value={globalSearch}
-    onChange={(e) => setGlobalSearch(e.target.value)}
-    onKeyDown={(e) => {
-      if (e.key === "Enter") runSearch();
-    }}
-    placeholder="Search name, email, city, industry, domain, website, skill, job title…"
-    className="h-9 w-[320px] rounded-md border px-3 text-sm focus:ring-2 focus:ring-sky-200"
-  />
-  <button
-    onClick={runSearch}
-    className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-sky-600 text-white rounded hover:bg-sky-700"
-  >
-    Search
-  </button>
-</div>
-
-      {/* Export buttons (only visible to admin roles) */}
-      <>
-  {/* Desktop */}
-  <div className="hidden sm:flex items-center gap-2">
-    {/* CSV for ALL */}
-    <button
-      onClick={exportCSV}
-      disabled={pageExporting}
-      className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
-        pageExporting ? "opacity-50 cursor-not-allowed" : ""
-      }`}
-    >
-      {activeExportBtn === "csv" ? (
-        <>
-          <BtnSpinner />
-          Exporting CSV…
-        </>
-      ) : (
-        "CSV"
-      )}
-    </button>
-
-    {/* Excel for ALL */}
-    <button
-      onClick={exportExcel}
-      disabled={pageExporting}
-      className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
-        pageExporting ? "opacity-50 cursor-not-allowed" : ""
-      }`}
-    >
-      {activeExportBtn === "excel" ? (
-        <>
-          <BtnSpinner />
-          Exporting Excel…
-        </>
-      ) : (
-        "Excel"
-      )}
-    </button>
-
-    {/* Export All ONLY for admin */}
-    {isAdmin ? (
-      <div className="inline-flex items-center gap-2">
-        <button
-          // onClick={() => startExportJob("csv")}
-          disabled={exporting}
-          title="Export all Is Not Working Still IN progress ...."
-          // className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition ${
-          //   exporting
-          //     ? "bg-slate-200 text-slate-600 cursor-not-allowed"
-          //     : "bg-white text-slate-700 hover:bg-slate-50"
-          // }`}
-          className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition bg-slate-200 text-slate-600 cursor-not-allowed`}
-        >
-          {/* {exporting ? (
-            <>
-              <svg
-                className="animate-spin w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
-              <span>Exporting…</span>
-            </>
-          ) : ( */}
-            <>
-              <File className="w-4 h-4" />
-              <span>Export All (CSV)</span>
-            </>
-          {/* )
-          } */}
-        </button>
-      </div>
-    ) : null}
-  </div>
-
-  {/* Mobile */}
-  <div className="sm:hidden inline-flex items-center gap-1">
-    {/* CSV for ALL */}
-    <button
-      onClick={exportCSV}
-      disabled={pageExporting}
-      className={`p-2 border rounded-md ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
-      title="CSV"
-    >
-      <Download className="w-4 h-4" />
-    </button>
-
-    {/* Excel for ALL */}
-    <button
-      onClick={exportExcel}
-      disabled={pageExporting}
-      className={`p-2 border rounded-md ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
-      title="Excel"
-    >
-      <FileText className="w-4 h-4" />
-    </button>
-
-    {/* Export All ONLY for admin */}
-    {isAdmin ? (
-      <button
-        onClick={() => startExportJob("csv")}
-        disabled={exporting}
-        className={`p-2 border rounded-md ${exporting ? "opacity-50 cursor-not-allowed" : ""}`}
-        title="Export All (CSV)"
-      >
-        <File className="w-4 h-4" />
-      </button>
-    ) : null}
-  </div>
-</>
-
-    </div>
-
-      </div>
-
-
-      {/* Export job status area (shown to admin only) */}
-      {isAdmin && (exportJob || exporting || exportError) && (
-        <div className="mb-2">
-          <div className="bg-white border rounded-xl shadow-sm px-3 py-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <strong>Export job:</strong>
-                  <span className="text-sm text-slate-600">{exportJob?.jobId || (exporting ? "starting..." : "—")}</span>
-                  {exportJob?.status && (
-                    <span className="ml-2 text-xs px-2 py-0.5 rounded text-white" style={{ background: exportJob.status === "completed" ? "#16a34a" : exportJob.status === "failed" ? "#dc2626" : "#0ea5e9" }}>
-                      {exportJob.status}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-2">
-                  <div className="w-full bg-slate-100 rounded h-2">
-                    <div className="h-2 rounded" style={{ width: `${Math.min(100, Math.max(0, exportProgress))}%`, background: "#06b6d4" }} />
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    {exporting ? `Exporting... ${exportProgress || 0}%` : (exportJob?.status ? `Status: ${exportJob.status} ${exportProgress ? ` - ${exportProgress}%` : ""}` : "")}
-                    {exportError && <span className="text-red-600 ml-2">Error: {exportError}</span>}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {exportJob?.file && (
-                  <button
-                    onClick={() => downloadExportFile(exportJob.file)}
-                    className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download
-                  </button>
-                )}
-
-                {exporting && (
-                  <button
-                    onClick={cancelExport}
-                    className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
+      <main className="flex-1 px-2 pt-0 pb-6 -mt-3 flex flex-col">
+        {/* header */}
+        <div className="mb-1 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold">Lead Finder</h1>
           </div>
-        </div>
-      )}
 
-      {/* Chips ABOVE the grid; we measure this block and shrink the grid below */}
-      {hasApplied && activeChips.length > 0 && (
-        <div ref={chipBarRef} className="mb-2">
-          <div className="bg-white border rounded-xl shadow-sm px-3 py-2 flex flex-wrap items-center gap-1">
-            <span className="text-[11px] font-medium text-slate-600 mr-1">Filters:</span>
-            {activeChips.map((c, i) => (
-              <Chip key={i} onRemove={c.onRemove}>
-                {c.label}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* If quick page and not applied: show input area (no hero) */}
-      {isQuickPage && !hasApplied ? (
-        <div className="mb-4">
-          <div className="w-full max-w-3xl">
+          <div className="flex items-center gap-2">
+            {/* global search */}
             <div className="relative">
               <input
-                className="w-full h-11 pl-3 pr-24 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-200"
-                placeholder={quickMap[pathname].placeholder}
-                value={quickInput}
-                onChange={(e) => setQuickInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleQuickSearch(); }}
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") runSearch();
+                }}
+                placeholder="Search name, email, city, industry, domain, website, skill, job title…"
+                className="h-9 w-[320px] rounded-md border px-3 text-sm focus:ring-2 focus:ring-sky-200"
+                disabled={pageExporting}
               />
               <button
+                onClick={runSearch}
+                className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-sky-600 text-white rounded hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 type="button"
-                onClick={handleQuickSearch}
-                className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 border rounded-md px-3 py-1 text-sm text-white bg-sky-600 hover:bg-sky-700"
+                disabled={pageExporting}
               >
-                <SearchIcon className="w-4 h-4 text-white" />
                 Search
               </button>
             </div>
-            <div className="mt-3 text-sm text-slate-500">Search specific to <strong>{quickMap[pathname].placeholder.split(" ")[0]}</strong>. You can still expand the filters on the left and refine results after searching.</div>
+
+            {/* Columns dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setColsOpen((s) => !s);
+                }}
+                className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Columns"
+                disabled={pageExporting}
+              >
+                <Users className="w-4 h-4" />
+                Columns
+              </button>
+
+              {colsOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-[260px] bg-white border rounded-md shadow-lg z-50"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="p-2 border-b flex items-center justify-between">
+                    <div className="text-xs font-semibold text-slate-700">
+                      Toggle columns
+                    </div>
+                    <button
+                      className="text-xs text-slate-500 hover:text-slate-800"
+                      onClick={() => setColsOpen(false)}
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="p-2 flex items-center gap-2">
+                    <button
+                      className="text-xs px-2 py-1 border rounded hover:bg-slate-50"
+                      onClick={selectAllColumns}
+                      type="button"
+                    >
+                      Show all
+                    </button>
+                    <button
+                      className="text-xs px-2 py-1 border rounded hover:bg-slate-50"
+                      onClick={clearAllColumns}
+                      type="button"
+                    >
+                      Hide all
+                    </button>
+                    <button
+                      className="text-xs px-2 py-1 border rounded hover:bg-slate-50"
+                      onClick={resetColumns}
+                      type="button"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  <div className="max-h-[320px] overflow-auto p-2 space-y-1">
+                    {allColumnItems.map((c) => (
+                      <label
+                        key={c.field}
+                        className="flex items-center gap-2 text-xs text-slate-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isColumnVisible(c.field)}
+                          onChange={() => toggleColumn(c.field)}
+                        />
+                        <span className="truncate">{c.headerName}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Export buttons */}
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                onClick={exportCSV}
+                disabled={pageExporting}
+                className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
+                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                type="button"
+              >
+                {activeExportBtn === "csv" ? (
+                  <>
+                    <BtnSpinner />
+                    Exporting CSV…
+                  </>
+                ) : (
+                  "CSV"
+                )}
+              </button>
+
+              <button
+                onClick={exportExcel}
+                disabled={pageExporting}
+                className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
+                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                type="button"
+              >
+                {activeExportBtn === "excel" ? (
+                  <>
+                    <BtnSpinner />
+                    Exporting Excel…
+                  </>
+                ) : (
+                  "Excel"
+                )}
+              </button>
+
+              {/* Export All (admin only) */}
+              {/* {isAdmin ? (
+                <button
+                  onClick={startExportAllCSV}
+                  disabled={exporting || pageExporting}
+                  title="Export all records (server job)"
+                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition ${
+                    exporting || pageExporting
+                      ? "bg-slate-200 text-slate-600 cursor-not-allowed"
+                      : "bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                  type="button"
+                >
+                  {exporting ? (
+                    <>
+                      <svg
+                        className="animate-spin w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        />
+                      </svg>
+                      <span>Exporting…</span>
+                    </>
+                  ) : (
+                    <>
+                      <File className="w-4 h-4" />
+                      <span>Export All (CSV)</span>
+                    </>
+                  )}
+                </button>
+              ) : null} */}
+            </div>
+
+            {/* Mobile export icons */}
+            <div className="sm:hidden inline-flex items-center gap-1">
+              <button
+                onClick={exportCSV}
+                disabled={pageExporting}
+                className={`p-2 border rounded-md ${
+                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                title="CSV"
+                type="button"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={exportExcel}
+                disabled={pageExporting}
+                className={`p-2 border rounded-md ${
+                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                title="Excel"
+                type="button"
+              >
+                <FileText className="w-4 h-4" />
+              </button>
+
+              {/* {isAdmin ? (
+                <button
+                  onClick={startExportAllCSV}
+                  disabled={exporting || pageExporting}
+                  className={`p-2 border rounded-md ${
+                    exporting || pageExporting ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                  title="Export All (CSV)"
+                  type="button"
+                >
+                  <File className="w-4 h-4" />
+                </button>
+              ) : null} */}
+            </div>
           </div>
         </div>
-      ) : null}
 
-      {/* Original hero on dashboard if not applied */}
-      {!hasApplied && !isQuickPage ? (
-        <div className="relative">
+        {/* ✅ FULL-PAGE OVERLAY LOADER FOR PAGE CSV/EXCEL */}
+        {pageExporting && (
+          <div className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-[1px] flex items-center justify-center">
+            <div className="bg-white w-[420px] max-w-[92vw] border rounded-xl shadow-xl p-5">
+              <div className="flex items-center gap-3">
+                <svg
+                  className="animate-spin h-6 w-6 text-sky-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
+                </svg>
+
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-slate-800">
+                    Export in progress
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    {pageExportStatus || "Preparing file…"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full bg-sky-600 transition-all"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.max(0, pageExportProgress || 0)
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  {pageExportProgress ? `${pageExportProgress}%` : "0%"} — Please
+                  wait, do not refresh
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Backend export job status */}
+        {isAdmin && (exportJob || exporting || exportError) && (
+          <div className="mb-2">
+            <div className="bg-white border rounded-xl shadow-sm px-3 py-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <strong>Export job:</strong>
+                    <span className="text-sm text-slate-600">
+                      {exportJob?.jobId ||
+                        localStorage.getItem(EXPORT_JOB_LS_KEY) ||
+                        (exporting ? "starting..." : "—")}
+                    </span>
+                    {exportJob?.status && (
+                      <span
+                        className="ml-2 text-xs px-2 py-0.5 rounded text-white"
+                        style={{
+                          background:
+                            exportJob.status === "done"
+                              ? "#16a34a"
+                              : exportJob.status === "error"
+                              ? "#dc2626"
+                              : "#0ea5e9",
+                        }}
+                      >
+                        {exportJob.status}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-2">
+                    <div className="w-full bg-slate-100 rounded h-2">
+                      <div
+                        className="h-2 rounded"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(0, exportProgress || 0)
+                          )}%`,
+                          background: "#06b6d4",
+                        }}
+                      />
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+                      {exporting
+                        ? `Exporting... ${exportProgress || 0}%`
+                        : exportJob?.status
+                        ? `Status: ${exportJob.status} ${
+                            exportProgress ? ` - ${exportProgress}%` : ""
+                          }`
+                        : ""}
+                      {exportError && (
+                        <span className="text-red-600 ml-2">
+                          Error: {exportError}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {exportJob?.status === "done" && (
+                    <button
+                      onClick={() =>
+                        downloadExportByJobId(
+                          exportJob?.jobId ||
+                            localStorage.getItem(EXPORT_JOB_LS_KEY)
+                        )
+                      }
+                      className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50"
+                      type="button"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* chips */}
+        {hasApplied && activeChips.length > 0 && (
+          <div ref={chipBarRef} className="mb-2">
+            <div className="bg-white border rounded-xl shadow-sm px-3 py-2 flex flex-wrap items-center gap-1">
+              <span className="text-[11px] font-medium text-slate-600 mr-1">
+                Filters:
+              </span>
+              {activeChips.map((c, i) => (
+                <Chip key={i} onRemove={c.onRemove}>
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* quick page input if needed */}
+        {isQuickPage && !hasApplied ? (
+          <div className="mb-4">
+            <div className="w-full max-w-3xl">
+              <div className="relative">
+                <input
+                  className="w-full h-11 pl-3 pr-24 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  placeholder={quickMap[pathname].placeholder}
+                  value={quickInput}
+                  onChange={(e) => setQuickInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleQuickSearch();
+                  }}
+                  disabled={pageExporting}
+                />
+                <button
+                  type="button"
+                  onClick={handleQuickSearch}
+                  disabled={pageExporting}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 border rounded-md px-3 py-1 text-sm text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <SearchIcon className="w-4 h-4 text-white" />
+                  Search
+                </button>
+              </div>
+              <div className="mt-3 text-sm text-slate-500">
+                Search specific to{" "}
+                <strong>{quickMap[pathname].placeholder.split(" ")[0]}</strong>.
+                You can still expand the filters on the left and refine results
+                after searching.
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* hero vs grid */}
+        {!hasApplied && !isQuickPage ? (
           <Hero />
-        </div>
-      ) : (
-        <div
-          className="relative ag-theme-quartz bg-white border rounded-xl shadow-sm"
-          style={{
-            height: "-webkit-fill-available",
-            width: "100%",
-            "--ag-header-background-color": "#deeff7ff",
-            "--ag-header-foreground-color": "#2c2a2aff",
-            "--ag-header-height": "44px",
-            "--ag-border-color": "#e5e7eb",
-            "--ag-header-column-separator-display": "block",
-            "--ag-header-column-separator-color": "rgba(255,255,255,0.25)",
-            "--ag-header-column-resize-handle-color": "rgba(255,255,255,0.5)",
-          }}
-        >
-          <AgGridReact
-            ref={gridRef}
-            rowData={viewRows}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            rowSelection="multiple"
-            pagination={false} /* using server pagination, so disable AG's client pagination UI */
-            animateRows
-            enableCellTextSelection
-            suppressDragLeaveHidesColumns
-            onSelectionChanged={onSelectionChanged}
-            onGridReady={onGridReady}
-            rowHeight={56}
-          />
+        ) : (
+          <div
+            className="relative ag-theme-quartz bg-white border rounded-xl shadow-sm"
+            style={{
+              height: "-webkit-fill-available",
+              width: "100%",
+              "--ag-header-background-color": "#deeff7ff",
+              "--ag-header-foreground-color": "#2c2a2aff",
+              "--ag-header-height": "44px",
+              "--ag-border-color": "#e5e7eb",
+              "--ag-header-column-separator-display": "block",
+              "--ag-header-column-separator-color": "rgba(255,255,255,0.25)",
+              "--ag-header-column-resize-handle-color": "rgba(255,255,255,0.5)",
+            }}
+          >
+            <AgGridReact
+              ref={gridRef}
+              rowData={viewRows}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              rowSelection="multiple"
+              pagination={false}
+              animateRows
+              enableCellTextSelection
+              suppressDragLeaveHidesColumns
+              onSelectionChanged={onSelectionChanged}
+              onGridReady={onGridReady}
+              rowHeight={56}
+            />
 
-          {loading && (
-            <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center z-10">
-              <Spinner label="Loading data…" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {!loading && hasApplied && viewRows.length === 0 && (
-        <div className="mt-2 text-xs text-slate-500">No data found.</div>
-      )}
-
-      {/* Server pagination footer — now anchored at the bottom of main */}
-      {hasApplied && totalHits > 0 && (
-        <div className="mt-3 flex items-center justify-between">
-          {/* LEFT: dropdown button for rows-per-page */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setPageOptionsOpen((s) => !s); }}
-              className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50 shadow-sm"
-            >
-              Showing <span className="font-semibold">{Math.min(totalHits, pageSize)}</span> rows of <span className="font-semibold">{totalHitsDisplay}</span>
-              <svg className={`w-4 h-4 transition-transform ${pageOptionsOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06-.02L10 10.88l3.71-3.69a.75.75 0 111.06 1.06l-4.24 4.22a.75.75 0 01-1.06 0L5.25 8.25a.75.75 0 01-.02-1.06z" />
-              </svg>
-            </button>
-
-            {pageOptionsOpen && (
-      <div
-        className="absolute left-0 w-44 bg-white border rounded-md shadow-lg z-50"
-        onClick={(e) => e.stopPropagation()}
-        style={{ minWidth: 160, top: "-265px" }}
-      >
-        <div className="p-2 text-xs text-slate-500">Rows per page</div>
-        <div className="max-h-56 overflow-auto divide-y">
-          {PAGE_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => {
-                setPageOptionsOpen(false);
-                setPageSize(Number(opt));
-                if (hasApplied && typeof fetchPage === "function") {
-                  fetchPage(0, {});
-                }
-              }}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${Number(pageSize) === Number(opt) ? "font-medium text-sky-700" : "text-slate-700"}`}
-            >
-              {opt} rows
-              {Number(pageSize) === Number(opt) && <span className="ml-2 text-[10px] text-slate-400">✓</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-    )}
-
+            {loading && (
+              <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center z-10">
+                <Spinner label="Loading data…" />
+              </div>
+            )}
           </div>
+        )}
 
-          {/* RIGHT: pager controls */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onPrev}
-              disabled={page <= 0}
-              className="px-3 py-1 rounded-md border disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Prev
-            </button>
-            <div className="text-sm text-slate-600 px-2">
-              Page <span className="font-medium">{page + 1}</span> of <span className="font-medium">{totalPages}</span>
+        {!loading && hasApplied && viewRows.length === 0 && (
+          <div className="mt-2 text-xs text-slate-500">No data found.</div>
+        )}
+
+        {/* pagination footer */}
+        {hasApplied && totalHits > 0 && (
+          <div className="mt-3 flex items-center justify-between">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPageOptionsOpen((s) => !s);
+                }}
+                disabled={pageExporting}
+                className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Showing{" "}
+                <span className="font-semibold">{Math.min(totalHits, pageSize)}</span>{" "}
+                rows of <span className="font-semibold">{totalHitsDisplay}</span>
+                <svg
+                  className={`w-4 h-4 transition-transform ${
+                    pageOptionsOpen ? "rotate-180" : ""
+                  }`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06-.02L10 10.88l3.71-3.69a.75.75 0 111.06 1.06l-4.24 4.22a.75.75 0 01-1.06 0L5.25 8.25a.75.75 0 01-.02-1.06z"
+                  />
+                </svg>
+              </button>
+
+              {pageOptionsOpen && (
+                <div
+                  className="absolute left-0 w-44 bg-white border rounded-md shadow-lg z-50"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ minWidth: 160, top: "-265px" }}
+                >
+                  <div className="p-2 text-xs text-slate-500">Rows per page</div>
+                  <div className="max-h-56 overflow-auto divide-y">
+                    {PAGE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => {
+                          setPageOptionsOpen(false);
+                          setPageSize(Number(opt));
+                          if (hasApplied) fetchPage(0, {});
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${
+                          Number(pageSize) === Number(opt)
+                            ? "font-medium text-sky-700"
+                            : "text-slate-700"
+                        }`}
+                        type="button"
+                      >
+                        {opt} rows
+                        {Number(pageSize) === Number(opt) && (
+                          <span className="ml-2 text-[10px] text-slate-400">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <button
-              onClick={onNext}
-              disabled={page + 1 >= totalPages}
-              className="px-3 py-1 rounded-md border disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onPrev}
+                disabled={page <= 0 || pageExporting}
+                className="px-3 py-1 rounded-md border disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+              >
+                Prev
+              </button>
+              <div className="text-sm text-slate-600 px-2">
+                Page <span className="font-medium">{page + 1}</span> of{" "}
+                <span className="font-medium">{totalPages}</span>
+              </div>
+              <button
+                onClick={onNext}
+                disabled={page + 1 >= totalPages || pageExporting}
+                className="px-3 py-1 rounded-md border disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </main>
-  </div>
-);
+        )}
+      </main>
+    </div>
+  );
 }
