@@ -2,42 +2,52 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
-  Search, Phone, Mail, Globe, User, Settings, Key,
-  ChevronsLeft, ChevronsRight, Wrench,UsersRound,
-  MailPlus, Bell
+  Search,
+  Phone,
+  Mail,
+  Globe,
+  User,
+  Settings,
+  Key,
+  ChevronsLeft,
+  ChevronsRight,
+  Wrench,
+  UsersRound,
+  MailPlus,
+  Bell,
+  FileText, // ✅ NEW
 } from "lucide-react";
 import AppLogo from "../components/AppLogo";
 import { useAuthRole } from "../useAuth";
 
 const ACTIVE_BG = "bg-[#31A6F7]";
-const HOVER_BG  = "hover:bg-white/10";
+const HOVER_BG = "hover:bg-white/10";
 
-// base sections (we will conditionally inject admin items)
+// base sections
 const baseSections = [
   {
     title: "MAIN",
     items: [
-      { to: "/dashboard",        label: "Search B2B Leads",      icon: Search  },
-      { to: "/search-phone",     label: "Search Phone",           icon: Phone   },
-      { to: "/search-email",     label: "Search Email",           icon: Mail    },
-      { to: "/search-domain",    label: "Search Domain",          icon: Globe   },
-      { to: "/search-name",      label: "Search Name",            icon: User    },
+      { to: "/dashboard", label: "Search B2B Leads", icon: Search },
+      { to: "/search-phone", label: "Search Phone", icon: Phone },
+      { to: "/search-email", label: "Search Email", icon: Mail },
+      { to: "/search-domain", label: "Search Domain", icon: Globe },
+      { to: "/search-name", label: "Search Name", icon: User },
     ],
   },
   {
     title: "ACCOUNT",
     items: [
-      { to: "/settings",        label: "Setting",         icon: Settings },
-      { to: "/change-password", label: "Change Password", icon: Key      },
+      { to: "/settings", label: "Setting", icon: Settings },
+      { to: "/change-password", label: "Change Password", icon: Key },
     ],
   },
 ];
 
 export default function Sidebar() {
   const { pathname } = useLocation();
-  const role = useAuthRole() || "user"; // read role reactively
+  const role = useAuthRole() || "user";
 
-  // Hard visibility (arrow click) — persisted
   const [visible, setVisible] = useState(() => {
     const v = localStorage.getItem("sidebarVisible");
     return v === null ? true : v === "1";
@@ -46,10 +56,8 @@ export default function Sidebar() {
     localStorage.setItem("sidebarVisible", visible ? "1" : "0");
   }, [visible]);
 
-  // Hover expansion (not persisted)
   const [hovered, setHovered] = useState(false);
 
-  // Provide a compact comeback when fully hidden
   if (!visible) {
     return (
       <button
@@ -58,7 +66,8 @@ export default function Sidebar() {
         aria-label="Show sidebar"
         className="fixed z-40 grid place-items-center rounded-md text-white shadow-lg"
         style={{
-          background: "linear-gradient(90deg, var(--sidebar-from, #0E5A88), var(--sidebar-to, #31A6F7))",
+          background:
+            "linear-gradient(90deg, var(--sidebar-from, #0E5A88), var(--sidebar-to, #31A6F7))",
           top: "20px",
           left: "inherit",
           width: "1.5rem",
@@ -71,26 +80,30 @@ export default function Sidebar() {
     );
   }
 
-  // Widths
-  const railW = 56;   // collapsed visual rail
-  const openW = 224;  // expanded on hover
+  const railW = 56;
+  const openW = 224;
 
-  // Build sections — clone base but preserve function refs (icons)
-  // Avoid JSON.stringify which drops functions. Do a shallow structured clone.
-  const sections = baseSections.map(section => ({
+  const sections = baseSections.map((section) => ({
     title: section.title,
-    items: section.items.map(item => ({ ...item }))
+    items: section.items.map((item) => ({ ...item })),
   }));
 
   if (role === "admin") {
-    // Add Users/Admin area to MAIN (insert after dashboard)
+    // Admin item: Users
     sections[0].items.splice(1, 0, { to: "/admin", label: "Users", icon: UsersRound });
+
+    // ✅ Admin item: Exported CSV
+    // sections[0].items.splice(2, 0, {
+    //   to: "/exported-csv",
+    //   label: "Exported CSV",
+    //   icon: FileText,
+    // });
   }
 
-  // inline style uses CSS vars so admin can change them from Header control
   const sidebarStyle = {
     width: hovered ? openW : railW,
-    background: "linear-gradient(180deg, var(--sidebar-from, #0E5A88), var(--sidebar-to, #31A6F7))",
+    background:
+      "linear-gradient(180deg, var(--sidebar-from, #0E5A88), var(--sidebar-to, #31A6F7))",
   };
 
   return (
@@ -102,10 +115,15 @@ export default function Sidebar() {
         style={sidebarStyle}
       >
         <div className="h-full flex flex-col">
-          {/* Top: logo + hard hide arrow */}
           <div className="flex items-center justify-between px-0 py-3">
             <div className="flex items-center select-none">
-              <div className={hovered ? "w-14 h-14 flex items-center justify-center pl-1" : "w-12 h-12 flex items-center justify-center pl-1"}>
+              <div
+                className={
+                  hovered
+                    ? "w-14 h-14 flex items-center justify-center pl-1"
+                    : "w-12 h-12 flex items-center justify-center pl-1"
+                }
+              >
                 <AppLogo size={hovered ? 48 : 40} text="" />
               </div>
             </div>
@@ -119,7 +137,6 @@ export default function Sidebar() {
             </button>
           </div>
 
-          {/* Sections */}
           <div className="pb-4">
             {sections.map((section) => (
               <div key={section.title} className="mt-2">
@@ -131,7 +148,6 @@ export default function Sidebar() {
 
                 <nav className="mt-1 space-y-1">
                   {section.items.map((item, idx) => {
-                    // tools/submenu rows (unchanged)
                     if (item.tools) {
                       const Icon = item.icon || Wrench;
                       return (
@@ -143,7 +159,7 @@ export default function Sidebar() {
                               "relative flex items-center transition text-white/90",
                               hovered
                                 ? `mx-2 my-0.5 h-10 rounded-lg px-3 gap-3 w-[calc(100%-1rem)] ${HOVER_BG}`
-                                : `justify-center mx-2 my-0.5 h-10 w-10 rounded-full ${HOVER_BG}`
+                                : `justify-center mx-2 my-0.5 h-10 w-10 rounded-full ${HOVER_BG}`,
                             ].join(" ")}
                             title="Tools"
                             aria-haspopup="menu"
@@ -169,20 +185,32 @@ export default function Sidebar() {
                               "min-w-[220px] rounded-xl border border-black/10 bg-white text-gray-800 shadow-2xl",
                               "opacity-0 invisible",
                               "group-hover/tool:opacity-100 group-hover/tool:visible",
-                              "transition-opacity duration-150"
+                              "transition-opacity duration-150",
                             ].join(" ")}
                             role="menu"
                           >
                             <div className="py-1">
-                              <Link to="/tools/send-email" className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50" role="menuitem">
+                              <Link
+                                to="/tools/send-email"
+                                className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50"
+                                role="menuitem"
+                              >
                                 <Mail className="w-4 h-4 text-blue-700" />
                                 <span className="text-sm">Send Email</span>
                               </Link>
-                              <Link to="/tools/send-bulk-email" className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50" role="menuitem">
+                              <Link
+                                to="/tools/send-bulk-email"
+                                className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50"
+                                role="menuitem"
+                              >
                                 <MailPlus className="w-4 h-4 text-blue-700" />
                                 <span className="text-sm">Send Bulk Email</span>
                               </Link>
-                              <Link to="/tools/notifications" className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50" role="menuitem">
+                              <Link
+                                to="/tools/notifications"
+                                className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50"
+                                role="menuitem"
+                              >
                                 <Bell className="w-4 h-4 text-blue-700" />
                                 <span className="text-sm">Notification</span>
                               </Link>
@@ -192,10 +220,9 @@ export default function Sidebar() {
                       );
                     }
 
-                    // Regular nav items (including admin /users if present)
                     const { to, label, icon: Icon } = item;
-                    // treat active as exact path match or /admin subpaths
-                    const active = pathname === to || (to === "/admin" && pathname.startsWith("/admin"));
+                    const active =
+                      pathname === to || (to === "/admin" && pathname.startsWith("/admin"));
 
                     return (
                       <div key={to} className="relative group">
@@ -206,7 +233,7 @@ export default function Sidebar() {
                             hovered
                               ? `mx-2 my-0.5 h-10 rounded-lg px-3 gap-3 w-[calc(100%-1rem)] ${HOVER_BG}`
                               : `justify-center mx-2 my-0.5 h-10 w-10 rounded-full ${HOVER_BG}`,
-                            active ? "" : "text-white/90"
+                            active ? "" : "text-white/90",
                           ].join(" ")}
                           title={hovered ? undefined : label}
                         >
@@ -214,10 +241,9 @@ export default function Sidebar() {
                             className={[
                               "grid place-items-center",
                               hovered ? "w-8 h-8 rounded-full" : "w-10 h-10 rounded-full",
-                              active ? `${ACTIVE_BG} text-white` : "bg-transparent text-white"
+                              active ? `${ACTIVE_BG} text-white` : "bg-transparent text-white",
                             ].join(" ")}
                           >
-                            {/* Icon must be a valid React component */}
                             {Icon ? <Icon className="w-5 h-5" /> : null}
                           </span>
                           {hovered && <span className="truncate text-white">{label}</span>}
@@ -232,7 +258,6 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Spacer keeps base content alignment while the rail overlaps on expand */}
       <div aria-hidden className="shrink-0" style={{ width: railW }} />
     </>
   );

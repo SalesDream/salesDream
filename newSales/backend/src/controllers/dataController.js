@@ -110,10 +110,7 @@ async function resolveIndices() {
   for (const idx of unique) {
     try {
       const exists = await client.indices.exists({ index: idx });
-      const ok =
-        exists === true ||
-        exists?.body === true ||
-        exists?.body === undefined;
+      const ok = exists === true || exists?.body === true || exists?.body === undefined;
       if (ok) found.push(idx);
     } catch (e) {
       console.warn(`Index check failed for ${idx}:`, e?.message || e);
@@ -125,10 +122,7 @@ async function resolveIndices() {
 
 /* =========================================================
    ✅ FULL STRING PHRASE MATCH HELPERS
-   Requirement: match the full input string, not a single word.
    ========================================================= */
-
-// strict phrase clauses: keyword exact (case variants) + match_phrase
 function fullPhraseClauses(field, value) {
   const v = sanitizeQ(value);
   if (!v) return [];
@@ -137,34 +131,23 @@ function fullPhraseClauses(field, value) {
   const lower = v.toLowerCase();
 
   return [
-    // Keyword exact (handles fields mapped as keyword or keyword subfield)
     { term: { [`${field}.keyword`]: v } },
     { term: { [`${field}.keyword`]: upper } },
     { term: { [`${field}.keyword`]: lower } },
-
-    // Phrase match on analyzed text fields (requires full phrase in order)
-    // This prevents "raton" matching when input is "boca raton"
     { match_phrase: { [field]: v } },
   ];
 }
 
-// add filter requiring full phrase match in ANY of the provided fields
 function addFullPhraseFilterShould(filterArr, fields, value) {
   const v = sanitizeQ(value);
   if (!v) return;
 
   const should = [];
-  for (const f of fields) {
-    should.push(...fullPhraseClauses(f, v));
-  }
-
+  for (const f of fields) should.push(...fullPhraseClauses(f, v));
   if (!should.length) return;
 
   filterArr.push({
-    bool: {
-      should,
-      minimum_should_match: 1,
-    },
+    bool: { should, minimum_should_match: 1 },
   });
 }
 
@@ -195,7 +178,6 @@ function addNormalizedEmailFilter(filterArr, normalizedEmailParam) {
 
   const should = [];
   for (const f of EMAIL_FIELDS) {
-    // exact email match
     should.push({ term: { [`${f}.keyword`]: emailQ } });
     should.push({ term: { [f]: emailQ } });
     should.push({ match_phrase: { [f]: emailQ } });
@@ -203,12 +185,7 @@ function addNormalizedEmailFilter(filterArr, normalizedEmailParam) {
 
   if (!should.length) return;
 
-  filterArr.push({
-    bool: {
-      should,
-      minimum_should_match: 1,
-    },
-  });
+  filterArr.push({ bool: { should, minimum_should_match: 1 } });
 }
 
 /* =========================================================
@@ -244,22 +221,14 @@ function addPhoneFilter(filterArr, phoneParam) {
   ];
 
   const should = [];
-  for (const f of PHONE_FIELDS) {
-    should.push(...phoneClauses(f, digits));
-  }
-
+  for (const f of PHONE_FIELDS) should.push(...phoneClauses(f, digits));
   if (!should.length) return;
 
-  filterArr.push({
-    bool: {
-      should,
-      minimum_should_match: 1,
-    },
-  });
+  filterArr.push({ bool: { should, minimum_should_match: 1 } });
 }
 
 /* =========================================================
-   domain filter (exact domain; also matches inside full URL)
+   domain filter
    ========================================================= */
 function normalizeDomain(v) {
   const s = sanitizeQ(v).toLowerCase();
@@ -294,23 +263,14 @@ function addDomainFilter(filterArr, domainParam) {
   ];
 
   const should = [];
-  for (const f of DOMAIN_FIELDS) {
-    should.push(...domainClauses(f, domain));
-  }
-
+  for (const f of DOMAIN_FIELDS) should.push(...domainClauses(f, domain));
   if (!should.length) return;
 
-  filterArr.push({
-    bool: {
-      should,
-      minimum_should_match: 1,
-    },
-  });
+  filterArr.push({ bool: { should, minimum_should_match: 1 } });
 }
 
 /* =========================================================
-   ✅ GLOBAL q: FULL PHRASE ONLY (not token contains)
-   - Requirement: match full q string, not parts
+   ✅ GLOBAL q must full phrase
    ========================================================= */
 function addGlobalQMustFullPhrase(mustArr, qVal) {
   const v = sanitizeQ(qVal);
@@ -336,58 +296,39 @@ function addGlobalQMustFullPhrase(mustArr, qVal) {
   ];
 
   const should = [];
-  for (const f of Q_FIELDS) {
-    // Full phrase across any ONE field
-    should.push(...fullPhraseClauses(f, v));
-  }
-
+  for (const f of Q_FIELDS) should.push(...fullPhraseClauses(f, v));
   if (!should.length) return;
 
-  mustArr.push({
-    bool: {
-      should,
-      minimum_should_match: 1,
-    },
-  });
+  mustArr.push({ bool: { should, minimum_should_match: 1 } });
 }
 
 /* =========================================================
-   Build Query:
-   - If q exists => MUST full phrase match (in any 1 field)
-   - Filters => full phrase match (in any 1 of allowed fields)
+   Build Query (used by getLeads + export)
    ========================================================= */
 function buildLeadsQuery(reqQuery) {
   const must = [];
   const filter = [];
 
-  /* ---------- 1) GLOBAL q (FULL PHRASE ONLY) ---------- */
   const qVal = sanitizeQ(reqQuery?.q);
   if (qVal) addGlobalQMustFullPhrase(must, qVal);
 
-  /* ---------- 2) FILTERS ---------- */
   addNormalizedEmailFilter(filter, reqQuery?.normalized_email);
   addPhoneFilter(filter, reqQuery?.phone);
 
-  // domain
-  if (sanitizeQ(reqQuery?.domain)) {
-    addDomainFilter(filter, reqQuery.domain);
-  }
+  if (sanitizeQ(reqQuery?.domain)) addDomainFilter(filter, reqQuery.domain);
 
-  // company_name (FULL PHRASE)
   addFullPhraseFilterShould(
     filter,
     ["merged.Company", "merged.normalized_company_name", "linked.Company_Name"],
     reqQuery?.company_name
   );
 
-  // city (FULL PHRASE)
   addFullPhraseFilterShould(
     filter,
     ["merged.City", "linked.Locality", "merged.normalized_city", "linked.normalized_city"],
     reqQuery?.city
   );
 
-  // zip_code (exact)
   if (sanitizeQ(reqQuery?.zip_code)) {
     const z = sanitizeQ(reqQuery.zip_code);
     filter.push({
@@ -402,32 +343,27 @@ function buildLeadsQuery(reqQuery) {
     });
   }
 
-  // website (FULL PHRASE)
   addFullPhraseFilterShould(
     filter,
     ["merged.Web_Address", "merged.normalized_website", "linked.Company_Website"],
     reqQuery?.website
   );
 
-  // contact_full_name (FULL PHRASE)
   addFullPhraseFilterShould(
     filter,
     ["linked.Full_name", "merged.Name", "merged.normalized_full_name"],
     reqQuery?.contact_full_name
   );
 
-  // state_code (comma list) -> exact-ish, case variants (not phrase)
   const states = listFromComma(reqQuery?.state_code);
   if (states.length) {
     const shouldStates = [];
     for (const st of states) {
       const stVal = sanitizeQ(st);
       if (!stVal) continue;
-
       const upper = stVal.toUpperCase();
       const lower = stVal.toLowerCase();
 
-      // strict state match
       shouldStates.push({ term: { "merged.State.keyword": upper } });
       shouldStates.push({ term: { "merged.State.keyword": lower } });
       shouldStates.push({ term: { "linked.normalized_state.keyword": upper } });
@@ -440,23 +376,16 @@ function buildLeadsQuery(reqQuery) {
     }
 
     if (shouldStates.length) {
-      filter.push({
-        bool: {
-          should: shouldStates,
-          minimum_should_match: 1,
-        },
-      });
+      filter.push({ bool: { should: shouldStates, minimum_should_match: 1 } });
     }
   }
 
-  // job_title (FULL PHRASE)
   addFullPhraseFilterShould(
     filter,
     ["linked.Job_title", "merged.Title_Full"],
     reqQuery?.job_title
   );
 
-  // skills (comma list): each item treated as FULL PHRASE inside Skills field
   const skills = listFromComma(reqQuery?.skills);
   if (skills.length) {
     const should = [];
@@ -466,12 +395,9 @@ function buildLeadsQuery(reqQuery) {
       should.push(...fullPhraseClauses("linked.Skills", v));
       should.push(...fullPhraseClauses("merged.Skills", v));
     }
-    if (should.length) {
-      filter.push({ bool: { should, minimum_should_match: 1 } });
-    }
+    if (should.length) filter.push({ bool: { should, minimum_should_match: 1 } });
   }
 
-  // skills_tokens (free text): FULL PHRASE ONLY (not tokens)
   if (sanitizeQ(reqQuery?.skills_tokens)) {
     const v = sanitizeQ(reqQuery.skills_tokens);
     filter.push({
@@ -485,7 +411,6 @@ function buildLeadsQuery(reqQuery) {
     });
   }
 
-  /* ---------- 3) Final query ---------- */
   if (!must.length && !filter.length) return { match_all: {} };
 
   const bool = {};
@@ -502,9 +427,7 @@ async function getLeads(req, res) {
   try {
     const { indices, tried } = await resolveIndices();
     if (!indices || indices.length === 0) {
-      return res
-        .status(500)
-        .json({ message: "No OpenSearch index found", tried });
+      return res.status(500).json({ message: "No OpenSearch index found", tried });
     }
 
     const { limit, offset } = parseLimitOffset(req);
@@ -519,34 +442,24 @@ async function getLeads(req, res) {
       if (allowed.length) searchIndex = allowed;
     }
 
-    const indexParam = Array.isArray(searchIndex)
-      ? searchIndex.join(",")
-      : searchIndex;
-
+    const indexParam = Array.isArray(searchIndex) ? searchIndex.join(",") : searchIndex;
     const esQuery = buildLeadsQuery(req.query);
 
-    const searchParams = {
+    const resp = await client.search({
       index: indexParam,
-      body: {
-        query: esQuery,
-        track_total_hits: true,
-      },
+      body: { query: esQuery, track_total_hits: true },
       from: offset,
       size: limit,
-    };
+    });
 
-    const resp = await client.search(searchParams);
     const body = resp?.body || resp;
-
     const hits = body?.hits?.hits || [];
     const totalObj = body?.hits?.total;
 
-    let total = 0;
-    if (typeof totalObj === "object" && totalObj !== null) {
-      total = Number(totalObj.value || 0);
-    } else {
-      total = Number(totalObj || 0);
-    }
+    const total =
+      typeof totalObj === "object" && totalObj !== null
+        ? Number(totalObj.value || 0)
+        : Number(totalObj || 0);
 
     const rows = hits.map((h) => {
       const source = { _id: h._id, ...(h._source || {}) };
@@ -554,12 +467,7 @@ async function getLeads(req, res) {
     });
 
     return res.json({
-      meta: {
-        index: indexParam,
-        total,
-        from: offset,
-        size: limit,
-      },
+      meta: { index: indexParam, total, from: offset, size: limit },
       data: rows,
     });
   } catch (err) {
@@ -569,20 +477,16 @@ async function getLeads(req, res) {
 }
 
 /* =========================================================
-   Controller: GET /api/data/leads/export
-   - Keep export as ALL docs (match_all)
+   Controller: GET /api/data/leads/export (kept)
    ========================================================= */
 async function exportLeads(req, res) {
   try {
     const { indices, tried } = await resolveIndices();
     if (!indices || indices.length === 0) {
-      return res
-        .status(500)
-        .json({ message: "No OpenSearch index found", tried });
+      return res.status(500).json({ message: "No OpenSearch index found", tried });
     }
 
     const indexParam = indices.join(",");
-
     const PAGE_SIZE = 5000;
     const allRows = [];
     let searchAfter = null;
@@ -593,7 +497,6 @@ async function exportLeads(req, res) {
         size: PAGE_SIZE,
         sort: [{ _id: "asc" }],
       };
-
       if (searchAfter) body.search_after = searchAfter;
 
       const resp = await client.search({ index: indexParam, body });
@@ -605,14 +508,10 @@ async function exportLeads(req, res) {
         const source = { _id: h._id, ...(h._source || {}) };
         allRows.push(normalizeNestedPrefixes(source));
       }
-
       searchAfter = hits[hits.length - 1].sort;
     }
 
-    return res.json({
-      meta: { total: allRows.length },
-      data: allRows,
-    });
+    return res.json({ meta: { total: allRows.length }, data: allRows });
   } catch (err) {
     console.error("exportLeads error:", err?.message || err);
     return res.status(500).json({ message: "Export failed" });
@@ -626,9 +525,7 @@ async function getLeadById(req, res) {
   try {
     const { indices, tried } = await resolveIndices();
     if (!indices || indices.length === 0) {
-      return res
-        .status(500)
-        .json({ message: "No OpenSearch index found", tried });
+      return res.status(500).json({ message: "No OpenSearch index found", tried });
     }
 
     const id = req.params?.id;
@@ -638,10 +535,7 @@ async function getLeadById(req, res) {
 
     const resp = await client.search({
       index: indexParam,
-      body: {
-        size: 1,
-        query: { ids: { values: [id] } },
-      },
+      body: { size: 1, query: { ids: { values: [id] } } },
     });
 
     const body = resp?.body || resp;
@@ -660,4 +554,9 @@ module.exports = {
   getLeads,
   exportLeads,
   getLeadById,
+
+  // ✅ IMPORTANT: export helpers so exportController can reuse exact logic
+  resolveIndices,
+  buildLeadsQuery,
+  normalizeNestedPrefixes,
 };
