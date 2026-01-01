@@ -62,5 +62,26 @@
     "filepath": "D:\\avinash Development\\Development\\node\\salesdream-clone\\salesdream-clone\\newSales\\backend\\exports\\leads_export_1767098556696_b62948c791909ffbb405.csv",
     "startedAt": 1767098556696,
     "finishedAt": 1767098559215
+  },
+  "400308db4dc3171c81b9": {
+    "jobId": "400308db4dc3171c81b9",
+    "status": "done",
+    "progress": 100,
+    "processed": 15,
+    "total": 15,
+    "filename": "leads_export_1767279094782_400308db4dc3171c81b9.csv",
+    "filepath": "D:\\avinash Development\\Development\\node\\salesdream-clone\\salesdream-clone\\newSales\\backend\\exports\\leads_export_1767279094782_400308db4dc3171c81b9.csv",
+    "startedAt": 1767279094782,
+    "finishedAt": 1767279097952
+  },
+  "a74b495ba5afba1f7cdb": {
+    "jobId": "a74b495ba5afba1f7cdb",
+    "status": "running",
+    "progress": 0,
+    "processed": 110000,
+    "total": 69950969,
+    "filename": "leads_export_1767287870439_a74b495ba5afba1f7cdb.csv",
+    "filepath": "D:\\avinash Development\\Development\\node\\salesdream-clone\\salesdream-clone\\newSales\\backend\\exports\\leads_export_1767287870439_a74b495ba5afba1f7cdb.csv",
+    "startedAt": 1767287870439
   }
 }

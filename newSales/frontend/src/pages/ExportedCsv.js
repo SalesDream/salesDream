@@ -97,19 +97,19 @@ export default function ExportedCsv() {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 text-[color:var(--text-primary)]">
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-slate-700" />
-          <h1 className="text-lg font-semibold text-slate-800">Exported CSV</h1>
-          <span className="text-xs text-slate-500">({files.length})</span>
+          <FileText className="w-5 h-5 text-[color:var(--text-primary)]" />
+          <h1 className="text-lg font-semibold">Exported CSV</h1>
+          <span className="text-xs text-[color:var(--text-muted)]">({files.length})</span>
         </div>
 
         <button
           onClick={load}
           disabled={loading}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border bg-white text-sm ${
-            loading ? "opacity-60 cursor-not-allowed" : "hover:bg-slate-50"
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-[color:var(--border-color)] bg-[color:var(--surface)] text-sm ${
+            loading ? "opacity-60 cursor-not-allowed" : "hover:bg-[color:var(--surface-muted)]"
           }`}
           type="button"
         >
@@ -119,15 +119,15 @@ export default function ExportedCsv() {
       </div>
 
       {err ? (
-        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+        <div className="mb-3 text-sm text-red-500 bg-red-500/10 border border-red-400/40 rounded-md px-3 py-2">
           {err}
         </div>
       ) : null}
 
-      <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-auto">
           <table className="min-w-[860px] w-full">
-            <thead className="bg-[#deeff7ff] text-slate-800">
+            <thead className="bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
               <tr>
                 <th className="text-left text-xs font-semibold px-3 py-2">CSV Name</th>
                 <th className="text-left text-xs font-semibold px-3 py-2">Exported Date</th>
@@ -139,26 +139,26 @@ export default function ExportedCsv() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-slate-500">
-                    Loading…
+                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-[color:var(--text-muted)]">
+                    Loading...
                   </td>
                 </tr>
               ) : files.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-slate-500">
+                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-[color:var(--text-muted)]">
                     No exported CSV files found.
                   </td>
                 </tr>
               ) : (
                 files.map((f) => (
-                  <tr key={f.filename} className="border-t">
-                    <td className="px-3 py-2 text-sm text-slate-800">
+                  <tr key={f.filename} className="border-t border-[color:var(--border-color)]">
+                    <td className="px-3 py-2 text-sm">
                       <div className="font-medium">{f.filename}</div>
                     </td>
-                    <td className="px-3 py-2 text-sm text-slate-700">
+                    <td className="px-3 py-2 text-sm text-[color:var(--text-primary)]">
                       {formatDate(f.exportedAt)}
                     </td>
-                    <td className="px-3 py-2 text-sm text-slate-700">
+                    <td className="px-3 py-2 text-sm text-[color:var(--text-primary)]">
                       {formatBytes(f.sizeBytes)}
                     </td>
                     <td className="px-3 py-2">
@@ -166,10 +166,10 @@ export default function ExportedCsv() {
                         <button
                           onClick={() => download(f.filename)}
                           disabled={busyName === f.filename}
-                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border bg-white text-sm ${
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-[color:var(--border-color)] bg-[color:var(--surface)] text-sm ${
                             busyName === f.filename
                               ? "opacity-60 cursor-not-allowed"
-                              : "hover:bg-slate-50"
+                              : "hover:bg-[color:var(--surface-muted)]"
                           }`}
                           type="button"
                         >
@@ -182,8 +182,8 @@ export default function ExportedCsv() {
                           disabled={busyName === f.filename}
                           className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm ${
                             busyName === f.filename
-                              ? "opacity-60 cursor-not-allowed bg-white"
-                              : "bg-white hover:bg-red-50 text-red-600 border-red-200"
+                              ? "opacity-60 cursor-not-allowed bg-[color:var(--surface)]"
+                              : "bg-[color:var(--surface)] hover:bg-red-500/10 text-red-500 border-red-400/60"
                           }`}
                           type="button"
                         >
@@ -200,8 +200,8 @@ export default function ExportedCsv() {
         </div>
       </div>
 
-      <div className="mt-3 text-xs text-slate-500">
-        Tip: Files are stored on the backend in the <code className="px-1 py-0.5 bg-slate-100 rounded">/exports</code> folder.
+      <div className="mt-3 text-xs text-[color:var(--text-muted)]">
+        Tip: Files are stored on the backend in the <code className="px-1 py-0.5 bg-[color:var(--surface-muted)] rounded">/exports</code> folder.
       </div>
     </div>
   );

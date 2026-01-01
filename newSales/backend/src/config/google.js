@@ -43,9 +43,12 @@ module.exports = (passport) => {
 
 // helper to sign JWT
 module.exports.sign = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is required for Google auth");
+  }
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET || "devsecret",
+    process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
 };

@@ -93,11 +93,11 @@ export default function Sidebar() {
     sections[0].items.splice(1, 0, { to: "/admin", label: "Users", icon: UsersRound });
 
     // ✅ Admin item: Exported CSV
-    // sections[0].items.splice(2, 0, {
-    //   to: "/exported-csv",
-    //   label: "Exported CSV",
-    //   icon: FileText,
-    // });
+    sections[0].items.splice(2, 0, {
+      to: "/exported-csv",
+      label: "Exported CSV",
+      icon: FileText,
+    });
   }
 
   const sidebarStyle = {
@@ -137,7 +137,7 @@ export default function Sidebar() {
             </button>
           </div>
 
-          <div className="pb-4">
+          <div className="flex-1 overflow-y-auto pb-4 pr-1">
             {sections.map((section) => (
               <div key={section.title} className="mt-2">
                 {hovered && (

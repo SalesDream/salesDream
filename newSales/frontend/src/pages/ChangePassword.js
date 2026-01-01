@@ -56,7 +56,7 @@ export default function ChangePassword() {
 
   return (
       <div className=" flex items-center justify-center">
-        <div className="w-full max-w-4xl rounded-2xl shadow-lg overflow-hidden grid grid-cols-1 md:grid-cols-2 bg-white">
+      <div className="w-full max-w-4xl rounded-2xl shadow-lg overflow-hidden grid grid-cols-1 md:grid-cols-2 bg-[color:var(--surface)] text-[color:var(--text-primary)]">
           <div
             className="hidden md:flex items-end justify-center relative"
             style={{
@@ -78,7 +78,7 @@ export default function ChangePassword() {
           </div>
           </div>
   
-          <div className="p-4 md:p-6 bg-white flex items-center">
+          <div className="p-4 md:p-6 bg-[color:var(--surface)] flex items-center">
           <div className="w-full max-w-sm mx-auto">
             <div className="flex items-center gap-3 mb-4">
               <AppLogo size={34} text="Change password" subtitle="Update your account password" />

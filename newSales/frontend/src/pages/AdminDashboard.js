@@ -223,7 +223,7 @@ export default function AdminDashboard(){
   // Helper to render a sort indicator
   const sortIndicator = key => {
     if (sortBy !== key) return null;
-    return sortDir === 'asc' ? ' ▲' : ' ▼';
+    return sortDir === 'asc' ? ' ^' : ' v';
   };
 
   return (
@@ -489,3 +489,5 @@ export default function AdminDashboard(){
     return <span className="badge pill muted-sm">—</span>;
   }
 }
+
+
