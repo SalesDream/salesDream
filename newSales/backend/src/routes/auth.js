@@ -3,11 +3,12 @@ const router = require("express").Router();
 // const passport = require("passport");
 const authController = require("../controllers/authController");
 const { auth } = require("../middleware/auth");
-const googleConfig = require("../config/google");
-const { sign } = googleConfig || { sign: () => "" };
 const passport = require("../config/passport-google"); // registers strategy
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = process.env.JWT_SECRET || "devsecret";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required for auth routes");
+}
 
 // helper to sign a JWT for a user object
 function signUser(user) {

@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx
+﻿// src/pages/Dashboard.jsx
 import React, {
   useEffect,
   useMemo,
@@ -46,7 +46,7 @@ import {
  *   - persist job across refresh (localStorage)
  *   - poll status until done/error
  *   - download CSV as blob
- * - ✅ Adds full-page loader overlay for CSV/Excel page export until process completes
+ * - âœ… Adds full-page loader overlay for CSV/Excel page export until process completes
  */
 
 /* ---------- Small helpers ---------- */
@@ -112,11 +112,11 @@ const US_STATES = [
 
 /* ---------- Small chip ---------- */
 const Chip = ({ children, onRemove }) => (
-  <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full mr-1 mb-1">
-    {children}
+  <span className="inline-flex items-center gap-2 text-[10px] px-2 py-1 rounded-full mr-1 mb-1 border border-[color:var(--border-color)] bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
+    <span className="truncate">{children}</span>
     <button
       onClick={onRemove}
-      className="text-blue-500 hover:text-blue-700"
+      className="text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]"
       aria-label="Remove"
       type="button"
     >
@@ -126,10 +126,8 @@ const Chip = ({ children, onRemove }) => (
 );
 
 /* ---------- Compact sidebar typography ---------- */
-const labelCls =
-  "block text-[10px] font-semibold text-slate-600 tracking-wide";
-const inputCls =
-  "mt-1 h-7 w-full rounded-md border border-slate-300 px-2 text-[11px] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400";
+const labelCls = "block text-[10px] font-semibold text-[color:var(--text-primary)] tracking-wide";
+const inputCls = "mt-1 h-9 w-full rounded-md border border-[color:var(--border-color)] px-3 text-[11px] bg-[color:var(--surface)] text-[color:var(--text-primary)] placeholder:text-[color:var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]";
 
 /* ---------- Tri toggle ---------- */
 const ToggleTri = ({ value, onChange }) => {
@@ -147,7 +145,7 @@ const ToggleTri = ({ value, onChange }) => {
           className={`px-2 h-7 ${
             value === o.key
               ? "bg-sky-600 text-white"
-              : "bg-white hover:bg-slate-50"
+              : "bg-[color:var(--surface)] hover:bg-slate-50"
           }`}
           type="button"
         >
@@ -200,14 +198,14 @@ function MultiSelect({
           {curValues && curValues.length ? `${curValues.length} selected` : "Any"}
         </button>
         {open && (
-          <div className="absolute z-[60] mt-1 w-full max-h-64 overflow-auto bg-white border rounded-md shadow-lg">
+          <div className="absolute z-[60] mt-1 w-full max-h-64 overflow-auto bg-[color:var(--surface)] border rounded-md shadow-lg">
             {searchable && (
               <div className="p-2">
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   className={inputCls}
-                  placeholder="Search options…"
+                  placeholder="Search optionsâ€¦"
                 />
               </div>
             )}
@@ -231,7 +229,7 @@ function MultiSelect({
             </ul>
             <div className="border-t p-2 flex justify-between">
               <button
-                className="text-[10px] text-slate-600 hover:text-slate-900"
+                className="text-[10px] text-[color:var(--text-primary)] hover:text-slate-900"
                 onClick={() => onChange([])}
                 type="button"
               >
@@ -248,7 +246,7 @@ function MultiSelect({
           </div>
         )}
       </div>
-      {curValues && curValues.length > 0 && (
+      {curValues && curValues.length > 0 ? (
         <div className="mt-1">
           {Array.from(new Set(curValues)).map((v) => (
             <Chip
@@ -259,7 +257,7 @@ function MultiSelect({
             </Chip>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -299,7 +297,7 @@ function FilterSection({ icon: Icon, label, children, defaultOpen = false }) {
       {open && (
         <div className="px-3 pb-3 pt-0">
           <div className="h-px bg-slate-200 mb-2" />
-          <div className="space-y-2">{children}</div>
+          <div className="space-y-2"><span className="truncate">{children}</span></div>
         </div>
       )}
     </div>
@@ -309,7 +307,7 @@ function FilterSection({ icon: Icon, label, children, defaultOpen = false }) {
 /* ---------- Hero ---------- */
 function Hero() {
   return (
-    <div className="bg-white border rounded-xl shadow-sm p-6 h-[560px] flex flex-col items-center justify-center">
+    <div className="bg-[color:var(--surface)] border rounded-xl shadow-sm p-6 h-[560px] flex flex-col items-center justify-center">
       <div className="flex items-center gap-2 text-sky-700 font-semibold">
         <Sparkles className="w-4 h-4" />
         <span>Accelerate Lead Discovery with AI Search</span>
@@ -321,7 +319,7 @@ function Hero() {
       <div className="mt-4 w-full max-w-3xl">
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-            🔍
+            ðŸ”
           </span>
           <input
             className="w-full h-11 pl-9 pr-24 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-200"
@@ -342,16 +340,16 @@ function Hero() {
         </div>
       </div>
 
-      <div className="mt-6 text-center text-slate-600 text-sm">
+      <div className="mt-6 text-center text-[color:var(--text-primary)] text-sm">
         Use the filters on the left to find people and companies that match your
-        criteria. When you’re ready, click <b>Search</b>.
+        criteria. When youâ€™re ready, click <b>Search</b>.
       </div>
     </div>
   );
 }
 
 /* ---------- Spinner ---------- */
-function Spinner({ label = "Loading…" }) {
+function Spinner({ label = "Loadingâ€¦" }) {
   return (
     <div
       className="flex flex-col items-center justify-center gap-3"
@@ -379,7 +377,7 @@ function Spinner({ label = "Loading…" }) {
           d="M4 12a 8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
         />
       </svg>
-      <span className="text-xs text-slate-600">{label}</span>
+      <span className="text-xs text-[color:var(--text-primary)]">{label}</span>
     </div>
   );
 }
@@ -432,7 +430,14 @@ function getNested(obj, path) {
 /* ======================
    MAIN Dashboard View
    ====================== */
-export default function Dashboard() {
+export default function Dashboard({
+  pageTitle = "Lead Finder",
+  presetFilters = null,
+  presetFocus = "all",
+  presetQuery = "",
+  showGlobalControls = true,
+  showExportControls = true,
+}) {
   const gridRef = useRef(null);
   const chipBarRef = useRef(null);
   const exportPollRef = useRef(null);
@@ -455,7 +460,7 @@ export default function Dashboard() {
   const [pageOptionsOpen, setPageOptionsOpen] = useState(false);
 
   // Top global search
-  const [globalSearch, setGlobalSearch] = useState("");
+  const [globalSearch, setGlobalSearch] = useState(presetQuery || "");
 
   // Top email input (kept from your file)
   const [emailInput, setEmailInput] = useState("");
@@ -522,8 +527,16 @@ export default function Dashboard() {
     domain: [],
   };
 
-  const [f, setF] = useState(initialFilters);
+  const [f, setF] = useState(() => ({
+    ...initialFilters,
+    ...(presetFilters || {}),
+  }));
   const [hasApplied, setHasApplied] = useState(false);
+
+  useEffect(() => {
+    if (!presetFilters) return;
+    setF((prev) => ({ ...prev, ...presetFilters }));
+  }, [JSON.stringify(presetFilters || {})]);
 
   // measure chip bar height
   useEffect(() => {
@@ -952,11 +965,11 @@ export default function Dashboard() {
 
           {hasSub && (
             <div
-              className="text-[11.5px] text-slate-600 truncate"
-              title={`${title}${title && company ? " · " : ""}${company}`}
+              className="text-[11.5px] text-[color:var(--text-primary)] truncate"
+              title={`${title}${title && company ? " Â· " : ""}${company}`}
             >
               {title || ""}
-              {title && company ? " · " : ""}
+              {title && company ? " Â· " : ""}
               {company || ""}
             </div>
           )}
@@ -990,14 +1003,14 @@ export default function Dashboard() {
         </div>
         {loc && (
           <div
-            className="mt-0 flex items-center gap-1 text-[11.5px] text-slate-600 truncate"
+            className="mt-0 flex items-center gap-1 text-[11.5px] text-[color:var(--text-primary)] truncate"
             title={loc}
           >
             <MapPinIcon className="w-3 h-3" />
             <span className="truncate">{loc}</span>
           </div>
         )}
-        <div className="mt-0 flex items-center gap-1 text-[11.5px] text-slate-600 truncate">
+        <div className="mt-0 flex items-center gap-1 text-[11.5px] text-[color:var(--text-primary)] truncate">
           <Globe2 className="w-3 h-3" />
           {website ? (
             <a
@@ -1049,14 +1062,14 @@ export default function Dashboard() {
      
       { headerName: "Employees", field: "employees", flex: 0.6, minWidth: 110, sortable: true },
       {
-        headerName: "Revenue (Min–Max)",
+        headerName: "Revenue (Minâ€“Max)",
         field: "min_revenue",
         flex: 0.8,
         minWidth: 160,
         valueGetter: (p) => {
           const a = p.data?.min_revenue;
           const b = p.data?.max_revenue;
-          return a || b ? `${a || "–"} – ${b || "–"}` : "";
+          return a || b ? `${a || "â€“"} â€“ ${b || "â€“"}` : "";
         },
         sortable: true,
       },
@@ -1401,12 +1414,56 @@ export default function Dashboard() {
       key: "phone",
       placeholder: "Enter phone (e.g. +1 415 555 0123 or 4155550123)",
     },
-    "/search-area-code": { key: "phone", placeholder: "Enter area code (e.g. 415)" },
+    "/search-are×code": { key: "phone", placeholder: "Enter area code (e.g. 415)" },
     "/search-email": { key: "normalized_email", placeholder: "Enter email or partial (e.g. alice@, @gmail.com)" },
     "/search-domain": { key: "domain", placeholder: "Enter domain or website (e.g. example.com)" },
     "/search-name": { key: "contact_full_name", placeholder: "Enter full or partial name (e.g. John Smith)" },
   };
   const isQuickPage = pathname !== "/dashboard" && quickMap[pathname];
+
+  function handleQuickSearch() {
+    if (!isQuickPage) return;
+    const { key } = quickMap[pathname];
+    const overrides = {};
+    if (key === "domain") overrides[key] = [quickInput];
+    else overrides[key] = quickInput;
+    runSearchWithOverrides(overrides);
+  }
+
+  const quickSearchSlot = isQuickPage ? (
+    <div className="rounded-lg border border-[color:var(--border-color)] bg-[color:var(--surface-muted)] p-3 space-y-3 shadow-sm">
+      <div className="flex items-center justify-between text-xs font-semibold text-[color:var(--text-primary)] uppercase tracking-wide">
+        <span>Quick search</span>
+        <span className="text-[10px] text-[color:var(--text-muted)]">{quickMap[pathname].placeholder.split(" ")[0]}</span>
+      </div>
+
+      <div className="space-y-3">
+        <input
+          className="w-full h-10 pl-3 pr-3 border border-[color:var(--border-color)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text-primary)] placeholder:text-[color:var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+          placeholder={quickMap[pathname].placeholder}
+          value={quickInput}
+          onChange={(e) => setQuickInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleQuickSearch();
+          }}
+          disabled={pageExporting}
+        />
+        <button
+          type="button"
+          onClick={handleQuickSearch}
+          disabled={pageExporting}
+          className="w-full inline-flex items-center justify-center gap-2 border border-[color:var(--border-color)] rounded-md px-3 py-2 text-sm text-white bg-[color:var(--accent)] hover:bg-[color:var(--accent-2)] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <SearchIcon className="w-4 h-4 text-white" />
+          Search
+        </button>
+
+        <div className="text-[11px] text-[color:var(--text-muted)] leading-tight">
+          Optimized for {quickMap[pathname].placeholder}.
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   /* ---------- Server-paginated fetch ---------- */
   const fetchPage = async (pageNumber = 0, overrides = {}) => {
@@ -1446,7 +1503,8 @@ export default function Dashboard() {
       setViewRows(normalized);
       setSelectedCount(0);
       setPage(pageNumber);
-      setTotalHits(Number(total) || 0);
+      const parsedTotal = Number(String(total || "").replace(/[^0-9]/g, ""));
+      setTotalHits(Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : normalized.length);
     } catch (e) {
       console.error("fetchPage error", e);
       setRowData([]);
@@ -1477,15 +1535,6 @@ export default function Dashboard() {
     setTotalHits(0);
     setPage(0);
     setEmailInput("");
-  };
-
-  const handleQuickSearch = () => {
-    if (!isQuickPage) return;
-    const { key } = quickMap[pathname];
-    const overrides = {};
-    if (key === "domain") overrides[key] = [quickInput];
-    else overrides[key] = quickInput;
-    runSearchWithOverrides(overrides);
   };
 
   // pagination controls
@@ -1602,15 +1651,15 @@ export default function Dashboard() {
       setActiveExportBtn("csv");
       setPageExporting(true);
       setPageExportProgress(0);
-      setPageExportStatus("Starting export…");
+      setPageExportStatus("Starting exportâ€¦");
 
       const rows = await fetchVisiblePageRows((p) => {
         setPageExportProgress(p.percent);
-        setPageExportStatus(`Fetching ${p.batch} / ${p.total} batches…`);
+        setPageExportStatus(`Fetching ${p.batch} / ${p.total} batchesâ€¦`);
       });
 
       setPageExportProgress(100);
-      setPageExportStatus("Generating CSV…");
+      setPageExportStatus("Generating CSVâ€¦");
 
       const cols = getVisibleColumnsOrdered();
       const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -1623,7 +1672,7 @@ export default function Dashboard() {
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       downloadFile(blob, `leads_page_${page + 1}.csv`);
     } finally {
-      // ✅ keep loader until the process truly ends
+      // âœ… keep loader until the process truly ends
       setActiveExportBtn(null);
       setPageExporting(false);
       setPageExportProgress(0);
@@ -1636,15 +1685,15 @@ export default function Dashboard() {
       setActiveExportBtn("excel");
       setPageExporting(true);
       setPageExportProgress(0);
-      setPageExportStatus("Starting export…");
+      setPageExportStatus("Starting exportâ€¦");
 
       const rows = await fetchVisiblePageRows((p) => {
         setPageExportProgress(p.percent);
-        setPageExportStatus(`Fetching ${p.batch} / ${p.total} batches…`);
+        setPageExportStatus(`Fetching ${p.batch} / ${p.total} batchesâ€¦`);
       });
 
       setPageExportProgress(100);
-      setPageExportStatus("Generating Excel…");
+      setPageExportStatus("Generating Excelâ€¦");
 
       const cols = getVisibleColumnsOrdered();
 
@@ -1668,7 +1717,7 @@ export default function Dashboard() {
       const blob = new Blob([html], { type: "application/vnd.ms-excel" });
       downloadFile(blob, `leads_page_${page + 1}.xls`);
     } finally {
-      // ✅ keep loader until the process truly ends
+      // âœ… keep loader until the process truly ends
       setActiveExportBtn(null);
       setPageExporting(false);
       setPageExportProgress(0);
@@ -1677,7 +1726,7 @@ export default function Dashboard() {
   };
 
   /* =======================
-     ✅ BACKEND EXPORT ALL (job)
+     âœ… BACKEND EXPORT ALL (job)
      ======================= */
 
   const stopExportPolling = () => {
@@ -1815,10 +1864,21 @@ export default function Dashboard() {
     return () => document.removeEventListener("click", onDoc);
   }, [colsOpen]);
 
+  const heading = pageTitle || "Lead Finder";
+  const globalPlaceholder = (() => {
+    if (presetFocus === "phone") return "Search by phone, name, email, company, domainâ€¦";
+    if (presetFocus === "email") return "Search by email, name, company, city, job titleâ€¦";
+    if (presetFocus === "domain") return "Search by domain, website, company, name, titleâ€¦";
+    if (presetFocus === "name") return "Search by name, email, company, city, skillsâ€¦";
+    return "Search name, email, city, industry, domain, website, skill, job titleâ€¦";
+  })();
+
+  const showGlobal = showGlobalControls !== false && presetFocus === "all";
+  const showExports = showExportControls !== false && presetFocus === "all";
+
   /* ---------- Render ---------- */
   return (
-    <div className="h-[calc(96vh-0px)] flex">
-      {/* Left filters (your shared UI) */}
+    <div className="h-full flex gap-3 text-[color:var(--text-primary)] overflow-hidden">
       <CommonFilters
         open={filtersOpen}
         setOpen={setFiltersOpen}
@@ -1826,324 +1886,252 @@ export default function Dashboard() {
         setF={setF}
         onSearch={runSearch}
         onClear={clearFilters}
+        topSlot={quickSearchSlot}
       />
 
-      <main className="flex-1 px-2 pt-0 pb-6 -mt-3 flex flex-col">
-        {/* header */}
-        <div className="mb-1 flex items-center justify-between">
+      <div className="flex-1 flex flex-col overflow-visible">
+        <div className="pt-3 pb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold">Lead Finder</h1>
+            <h1 className="text-xl font-semibold leading-tight">{heading}</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* global search */}
-            <div className="relative">
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") runSearch();
-                }}
-                placeholder="Search name, email, city, industry, domain, website, skill, job title…"
-                className="h-9 w-[320px] rounded-md border px-3 text-sm focus:ring-2 focus:ring-sky-200"
-                disabled={pageExporting}
-              />
-              <button
-                onClick={runSearch}
-                className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-sky-600 text-white rounded hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                type="button"
-                disabled={pageExporting}
-              >
-                Search
-              </button>
-            </div>
-
-            {/* Columns dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setColsOpen((s) => !s);
-                }}
-                className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                title="Columns"
-                disabled={pageExporting}
-              >
-                <Users className="w-4 h-4" />
-                Columns
-              </button>
-
-              {colsOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-[260px] bg-white border rounded-md shadow-lg z-50"
-                  onClick={(e) => e.stopPropagation()}
+          {showGlobal ? (
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <div className="relative w-full sm:w-[380px]">
+                <input
+                  type="text"
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runSearch();
+                  }}
+                  placeholder={globalPlaceholder}
+                  className="h-10 w-full rounded-lg border border-[color:var(--border-color)] bg-[color:var(--surface)] px-3 pr-16 text-sm text-[color:var(--text-primary)] shadow-sm focus:ring-2 focus:ring-[color:var(--accent)]"
+                  disabled={pageExporting}
+                />
+                <button
+                  onClick={runSearch}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-[color:var(--accent)] text-white rounded-md hover:bg-[color:var(--accent-2)] shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                  disabled={pageExporting}
                 >
-                  <div className="p-2 border-b flex items-center justify-between">
-                    <div className="text-xs font-semibold text-slate-700">
-                      Toggle columns
-                    </div>
-                    <button
-                      className="text-xs text-slate-500 hover:text-slate-800"
-                      onClick={() => setColsOpen(false)}
-                      type="button"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  Search
+                </button>
+              </div>
 
-                  <div className="p-2 flex items-center gap-2">
-                    <button
-                      className="text-xs px-2 py-1 border rounded hover:bg-slate-50"
-                      onClick={selectAllColumns}
-                      type="button"
-                    >
-                      Show all
-                    </button>
-                    <button
-                      className="text-xs px-2 py-1 border rounded hover:bg-slate-50"
-                      onClick={clearAllColumns}
-                      type="button"
-                    >
-                      Hide all
-                    </button>
-                    <button
-                      className="text-xs px-2 py-1 border rounded hover:bg-slate-50"
-                      onClick={resetColumns}
-                      type="button"
-                    >
-                      Reset
-                    </button>
-                  </div>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setColsOpen((s) => !s);
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  title="Columns"
+                  disabled={pageExporting}
+                >
+                  <Users className="w-4 h-4" />
+                  Columns
+                </button>
 
-                  <div className="max-h-[320px] overflow-auto p-2 space-y-1">
-                    {allColumnItems.map((c) => (
-                      <label
-                        key={c.field}
-                        className="flex items-center gap-2 text-xs text-slate-700"
+                {colsOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-[260px] bg-[color:var(--surface)] border rounded-md shadow-lg z-50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-2 border-b flex items-center justify-between">
+                      <div className="text-xs font-semibold text-[color:var(--text-primary)]">
+                        Toggle columns
+                      </div>
+                      <button
+                        className="text-xs text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]"
+                        onClick={() => setColsOpen(false)}
+                        type="button"
+                        aria-label="Close column chooser"
                       >
-                        <input
-                          type="checkbox"
-                          checked={isColumnVisible(c.field)}
-                          onChange={() => toggleColumn(c.field)}
-                        />
-                        <span className="truncate">{c.headerName}</span>
-                      </label>
-                    ))}
+                        x
+                      </button>
+                    </div>
+
+                    <div className="p-2 flex items-center gap-2">
+                      <button
+                        className="text-xs px-2 py-1 border rounded hover:bg-[color:var(--surface-muted)]"
+                        onClick={selectAllColumns}
+                        type="button"
+                      >
+                        Show all
+                      </button>
+                      <button
+                        className="text-xs px-2 py-1 border rounded hover:bg-[color:var(--surface-muted)]"
+                        onClick={clearAllColumns}
+                        type="button"
+                      >
+                        Hide all
+                      </button>
+                      <button
+                        className="text-xs px-2 py-1 border rounded hover:bg-[color:var(--surface-muted)]"
+                        onClick={resetColumns}
+                        type="button"
+                      >
+                        Reset
+                      </button>
+                    </div>
+
+                    <div className="max-h-[320px] overflow-auto p-2 space-y-1">
+                      {allColumnItems.map((c) => (
+                        <label
+                          key={c.field}
+                          className="flex items-center gap-2 text-xs text-[color:var(--text-primary)]"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isColumnVisible(c.field)}
+                            onChange={() => toggleColumn(c.field)}
+                          />
+                          <span className="truncate">{c.headerName}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
+                )}
+              </div>
+
+              {showExports && (
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    onClick={exportCSV}
+                    disabled={pageExporting}
+                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    type="button"
+                  >
+                    {activeExportBtn === 'csv' ? (
+                      <>
+                        <BtnSpinner />
+                        Exporting CSV...
+                      </>
+                    ) : (
+                      'CSV'
+                    )}
+                  </button>
+
+                  <button
+                    onClick={exportExcel}
+                    disabled={pageExporting}
+                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    type="button"
+                  >
+                    {activeExportBtn === 'excel' ? (
+                      <>
+                        <BtnSpinner />
+                        Exporting Excel...
+                      </>
+                    ) : (
+                      'Excel'
+                    )}
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={startExportAllCSV}
+                      disabled={exporting || pageExporting}
+                      title="Export all records (server job)"
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border border-[color:var(--border-color)] transition ${exporting || pageExporting ? 'bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] cursor-not-allowed' : 'bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]'}`}
+                      type="button"
+                    >
+                      {exporting ? (
+                        <>
+                          <svg
+                            className="animate-spin w-4 h-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                            />
+                          </svg>
+                          <span>{exportProgress ? `${exportProgress}%` : 'Exporting...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <File className="w-4 h-4" />
+                          <span>Export All</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
-            </div>
 
-            {/* Export buttons */}
-            <div className="hidden sm:flex items-center gap-2">
-              <button
-                onClick={exportCSV}
-                disabled={pageExporting}
-                className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
-                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                type="button"
-              >
-                {activeExportBtn === "csv" ? (
-                  <>
-                    <BtnSpinner />
-                    Exporting CSV…
-                  </>
-                ) : (
-                  "CSV"
-                )}
-              </button>
-
-              <button
-                onClick={exportExcel}
-                disabled={pageExporting}
-                className={`inline-flex items-center gap-2 px-3 py-1 border rounded-md ${
-                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                type="button"
-              >
-                {activeExportBtn === "excel" ? (
-                  <>
-                    <BtnSpinner />
-                    Exporting Excel…
-                  </>
-                ) : (
-                  "Excel"
-                )}
-              </button>
-
-              {/* Export All (admin only) */}
-              {/* {isAdmin ? (
+              <div className="sm:hidden inline-flex items-center gap-1">
                 <button
-                  onClick={startExportAllCSV}
-                  disabled={exporting || pageExporting}
-                  title="Export all records (server job)"
-                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition ${
-                    exporting || pageExporting
-                      ? "bg-slate-200 text-slate-600 cursor-not-allowed"
-                      : "bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
+                  onClick={exportCSV}
+                  disabled={pageExporting}
+                  className={`p-2 border rounded-md ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="CSV"
                   type="button"
                 >
-                  {exporting ? (
-                    <>
-                      <svg
-                        className="animate-spin w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        aria-hidden="true"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                        />
-                      </svg>
-                      <span>Exporting…</span>
-                    </>
-                  ) : (
-                    <>
-                      <File className="w-4 h-4" />
-                      <span>Export All (CSV)</span>
-                    </>
-                  )}
+                  <Download className="w-4 h-4" />
                 </button>
-              ) : null} */}
-            </div>
 
-            {/* Mobile export icons */}
-            <div className="sm:hidden inline-flex items-center gap-1">
-              <button
-                onClick={exportCSV}
-                disabled={pageExporting}
-                className={`p-2 border rounded-md ${
-                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                title="CSV"
-                type="button"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={exportExcel}
-                disabled={pageExporting}
-                className={`p-2 border rounded-md ${
-                  pageExporting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                title="Excel"
-                type="button"
-              >
-                <FileText className="w-4 h-4" />
-              </button>
-
-              {/* {isAdmin ? (
                 <button
-                  onClick={startExportAllCSV}
-                  disabled={exporting || pageExporting}
-                  className={`p-2 border rounded-md ${
-                    exporting || pageExporting ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                  title="Export All (CSV)"
+                  onClick={exportExcel}
+                  disabled={pageExporting}
+                  className={`p-2 border rounded-md ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="Excel"
                   type="button"
                 >
-                  <File className="w-4 h-4" />
+                  <FileText className="w-4 h-4" />
                 </button>
-              ) : null} */}
+
+                {isAdmin ? (
+                  <button
+                    onClick={startExportAllCSV}
+                    disabled={exporting || pageExporting}
+                    className={`p-2 border rounded-md ${exporting || pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title="Export All (CSV)"
+                    type="button"
+                  >
+                    <File className="w-4 h-4" />
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
-        {/* ✅ FULL-PAGE OVERLAY LOADER FOR PAGE CSV/EXCEL */}
-        {pageExporting && (
-          <div className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-[1px] flex items-center justify-center">
-            <div className="bg-white w-[420px] max-w-[92vw] border rounded-xl shadow-xl p-5">
-              <div className="flex items-center gap-3">
-                <svg
-                  className="animate-spin h-6 w-6 text-sky-600"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                  />
-                </svg>
-
-                <div className="flex-1">
-                  <div className="text-sm font-semibold text-slate-800">
-                    Export in progress
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    {pageExportStatus || "Preparing file…"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div
-                    className="h-2 rounded-full bg-sky-600 transition-all"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        Math.max(0, pageExportProgress || 0)
-                      )}%`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2 text-xs text-slate-500">
-                  {pageExportProgress ? `${pageExportProgress}%` : "0%"} — Please
-                  wait, do not refresh
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Backend export job status */}
-        {isAdmin && (exportJob || exporting || exportError) && (
+        {showExports && isAdmin && (exportJob || exporting || exportError) && (
           <div className="mb-2">
-            <div className="bg-white border rounded-xl shadow-sm px-3 py-2">
+            <div className="bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-xl shadow-sm px-3 py-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <strong>Export job:</strong>
-                    <span className="text-sm text-slate-600">
+                    <span className="text-sm text-[color:var(--text-primary)]">
                       {exportJob?.jobId ||
                         localStorage.getItem(EXPORT_JOB_LS_KEY) ||
-                        (exporting ? "starting..." : "—")}
+                        (exporting ? 'starting...' : '')}
                     </span>
                     {exportJob?.status && (
                       <span
                         className="ml-2 text-xs px-2 py-0.5 rounded text-white"
                         style={{
                           background:
-                            exportJob.status === "done"
-                              ? "#16a34a"
-                              : exportJob.status === "error"
-                              ? "#dc2626"
-                              : "#0ea5e9",
+                            exportJob.status === 'done'
+                              ? '#16a34a'
+                              : exportJob.status === 'error'
+                              ? '#dc2626'
+                              : '#0ea5e9',
                         }}
                       >
                         {exportJob.status}
@@ -2152,26 +2140,23 @@ export default function Dashboard() {
                   </div>
 
                   <div className="mt-2">
-                    <div className="w-full bg-slate-100 rounded h-2">
+                    <div className="w-full bg-[color:var(--surface-muted)] rounded h-2 border border-[color:var(--border-color)]">
                       <div
                         className="h-2 rounded"
                         style={{
-                          width: `${Math.min(
-                            100,
-                            Math.max(0, exportProgress || 0)
-                          )}%`,
-                          background: "#06b6d4",
+                          width: `${Math.min(100, Math.max(0, exportProgress || 0))}%`,
+                          background: '#06b6d4',
                         }}
                       />
                     </div>
-                    <div className="mt-1 text-xs text-slate-600">
+                    <div className="mt-1 text-xs text-[color:var(--text-primary)]">
                       {exporting
                         ? `Exporting... ${exportProgress || 0}%`
                         : exportJob?.status
                         ? `Status: ${exportJob.status} ${
-                            exportProgress ? ` - ${exportProgress}%` : ""
+                            exportProgress ? ` - ${exportProgress}%` : ''
                           }`
-                        : ""}
+                        : ''}
                       {exportError && (
                         <span className="text-red-600 ml-2">
                           Error: {exportError}
@@ -2182,15 +2167,14 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {exportJob?.status === "done" && (
+                  {exportJob?.status === 'done' && (
                     <button
                       onClick={() =>
                         downloadExportByJobId(
-                          exportJob?.jobId ||
-                            localStorage.getItem(EXPORT_JOB_LS_KEY)
+                          exportJob?.jobId || localStorage.getItem(EXPORT_JOB_LS_KEY)
                         )
                       }
-                      className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50"
+                      className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]"
                       type="button"
                     >
                       <Download className="w-4 h-4" />
@@ -2203,11 +2187,10 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* chips */}
         {hasApplied && activeChips.length > 0 && (
           <div ref={chipBarRef} className="mb-2">
-            <div className="bg-white border rounded-xl shadow-sm px-3 py-2 flex flex-wrap items-center gap-1">
-              <span className="text-[11px] font-medium text-slate-600 mr-1">
+            <div className="bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-xl shadow-sm px-3 py-2 flex flex-wrap items-center gap-1">
+              <span className="text-[11px] font-medium text-[color:var(--text-primary)] mr-1">
                 Filters:
               </span>
               {activeChips.map((c, i) => (
@@ -2219,90 +2202,60 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* quick page input if needed */}
-        {isQuickPage && !hasApplied ? (
-          <div className="mb-4">
-            <div className="w-full max-w-3xl">
-              <div className="relative">
-                <input
-                  className="w-full h-11 pl-3 pr-24 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  placeholder={quickMap[pathname].placeholder}
-                  value={quickInput}
-                  onChange={(e) => setQuickInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleQuickSearch();
-                  }}
-                  disabled={pageExporting}
+        <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-visible">
+          {!hasApplied && !isQuickPage ? (
+            <Hero />
+          ) : (
+            <div
+              className="relative ag-theme-quartz card border border-[color:var(--border-color)] rounded-xl h-full w-full overflow-hidden"
+              style={{
+                '--ag-header-background-color': '#deeff7ff',
+                '--ag-header-foreground-color': '#1f2933',
+                '--ag-header-height': '44px',
+                '--ag-border-color': 'var(--border-color)',
+                '--ag-header-column-separator-display': 'block',
+                '--ag-header-column-separator-color': 'rgba(0,0,0,0.08)',
+                '--ag-header-column-resize-handle-color': 'rgba(0,0,0,0.2)',
+                '--ag-odd-row-background-color': 'var(--surface-muted)',
+                '--ag-background-color': 'var(--surface)',
+              }}
+            >
+              <div className="h-full w-full overflow-auto">
+                <AgGridReact
+                  ref={gridRef}
+                  rowData={viewRows}
+                  columnDefs={columnDefs}
+                  defaultColDef={defaultColDef}
+                  rowSelection="multiple"
+                  pagination={false}
+                  animateRows
+                  enableCellTextSelection
+                  suppressDragLeaveHidesColumns
+                  onSelectionChanged={onSelectionChanged}
+                  onGridReady={onGridReady}
+                  rowHeight={56}
+                  style={{ width: '100%', height: '100%' }}
                 />
-                <button
-                  type="button"
-                  onClick={handleQuickSearch}
-                  disabled={pageExporting}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 border rounded-md px-3 py-1 text-sm text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <SearchIcon className="w-4 h-4 text-white" />
-                  Search
-                </button>
               </div>
-              <div className="mt-3 text-sm text-slate-500">
-                Search specific to{" "}
-                <strong>{quickMap[pathname].placeholder.split(" ")[0]}</strong>.
-                You can still expand the filters on the left and refine results
-                after searching.
-              </div>
+
+              {loading && (
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex items-center justify-center z-10">
+                  <div className="card p-4 flex items-center gap-2">
+                    <Spinner label="Loading data..." />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ) : null}
+          )}
 
-        {/* hero vs grid */}
-        {!hasApplied && !isQuickPage ? (
-          <Hero />
-        ) : (
-          <div
-            className="relative ag-theme-quartz bg-white border rounded-xl shadow-sm"
-            style={{
-              height: "-webkit-fill-available",
-              width: "100%",
-              "--ag-header-background-color": "#deeff7ff",
-              "--ag-header-foreground-color": "#2c2a2aff",
-              "--ag-header-height": "44px",
-              "--ag-border-color": "#e5e7eb",
-              "--ag-header-column-separator-display": "block",
-              "--ag-header-column-separator-color": "rgba(255,255,255,0.25)",
-              "--ag-header-column-resize-handle-color": "rgba(255,255,255,0.5)",
-            }}
-          >
-            <AgGridReact
-              ref={gridRef}
-              rowData={viewRows}
-              columnDefs={columnDefs}
-              defaultColDef={defaultColDef}
-              rowSelection="multiple"
-              pagination={false}
-              animateRows
-              enableCellTextSelection
-              suppressDragLeaveHidesColumns
-              onSelectionChanged={onSelectionChanged}
-              onGridReady={onGridReady}
-              rowHeight={56}
-            />
+          {!loading && hasApplied && viewRows.length === 0 && (
+            <div className="text-xs text-[color:var(--text-muted)]">No data found.</div>
+          )}
+        </div>
 
-            {loading && (
-              <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center z-10">
-                <Spinner label="Loading data…" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {!loading && hasApplied && viewRows.length === 0 && (
-          <div className="mt-2 text-xs text-slate-500">No data found.</div>
-        )}
-
-        {/* pagination footer */}
         {hasApplied && totalHits > 0 && (
-          <div className="mt-3 flex items-center justify-between">
-            <div className="relative">
+          <div className="pt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative overflow-visible">
               <button
                 type="button"
                 onClick={(e) => {
@@ -2310,15 +2263,11 @@ export default function Dashboard() {
                   setPageOptionsOpen((s) => !s);
                 }}
                 disabled={pageExporting}
-                className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-white text-sm text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Showing{" "}
-                <span className="font-semibold">{Math.min(totalHits, pageSize)}</span>{" "}
-                rows of <span className="font-semibold">{totalHitsDisplay}</span>
+                Showing <span className="font-semibold">{Math.min(totalHits, pageSize)}</span> rows of <span className="font-semibold">{totalHitsDisplay}</span>
                 <svg
-                  className={`w-4 h-4 transition-transform ${
-                    pageOptionsOpen ? "rotate-180" : ""
-                  }`}
+                  className={`w-4 h-4 transition-transform ${pageOptionsOpen ? 'rotate-180' : ''}`}
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -2331,12 +2280,12 @@ export default function Dashboard() {
 
               {pageOptionsOpen && (
                 <div
-                  className="absolute left-0 w-44 bg-white border rounded-md shadow-lg z-50"
+                  className="absolute left-0 w-44 bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-md shadow-lg z-50"
+                  style={{ minWidth: 160, bottom: "calc(100% + 8px)" }}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ minWidth: 160, top: "-265px" }}
                 >
-                  <div className="p-2 text-xs text-slate-500">Rows per page</div>
-                  <div className="max-h-56 overflow-auto divide-y">
+                  <div className="p-2 text-xs text-[color:var(--text-muted)]">Rows per page</div>
+                  <div className="max-h-56 overflow-auto divide-y divide-[color:var(--border-color)]">
                     {PAGE_OPTIONS.map((opt) => (
                       <button
                         key={opt}
@@ -2345,17 +2294,10 @@ export default function Dashboard() {
                           setPageSize(Number(opt));
                           if (hasApplied) fetchPage(0, {});
                         }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${
-                          Number(pageSize) === Number(opt)
-                            ? "font-medium text-sky-700"
-                            : "text-slate-700"
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-[color:var(--surface-muted)] ${Number(pageSize) === Number(opt) ? 'font-medium text-[color:var(--accent)]' : 'text-[color:var(--text-primary)]'}`}
                         type="button"
                       >
                         {opt} rows
-                        {Number(pageSize) === Number(opt) && (
-                          <span className="ml-2 text-[10px] text-slate-400">✓</span>
-                        )}
                       </button>
                     ))}
                   </div>
@@ -2367,19 +2309,18 @@ export default function Dashboard() {
               <button
                 onClick={onPrev}
                 disabled={page <= 0 || pageExporting}
-                className="px-3 py-1 rounded-md border disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 rounded-md border border-[color:var(--border-color)] bg-[color:var(--surface)] text-[color:var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"
               >
                 Prev
               </button>
-              <div className="text-sm text-slate-600 px-2">
-                Page <span className="font-medium">{page + 1}</span> of{" "}
-                <span className="font-medium">{totalPages}</span>
+              <div className="text-sm text-[color:var(--text-primary)] px-2">
+                Page <span className="font-medium">{page + 1}</span> of <span className="font-medium">{totalPages}</span>
               </div>
               <button
                 onClick={onNext}
                 disabled={page + 1 >= totalPages || pageExporting}
-                className="px-3 py-1 rounded-md border disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 rounded-md border border-[color:var(--border-color)] bg-[color:var(--surface)] text-[color:var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"
               >
                 Next
@@ -2387,7 +2328,59 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-      </main>
+      </div>
+
+      {pageExporting && (
+        <div className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-[1px] flex items-center justify-center">
+          <div className="bg-[color:var(--surface)] w-[420px] max-w-[92vw] border border-[color:var(--border-color)] rounded-xl shadow-xl p-5">
+            <div className="flex items-center gap-3">
+              <svg
+                className="animate-spin h-6 w-6 text-[color:var(--accent)]"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-[color:var(--text-primary)]">
+                  Export in progress
+                </div>
+                <div className="text-xs text-[color:var(--text-muted)]">
+                  {pageExportStatus || 'Preparing file...'}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="w-full bg-[color:var(--surface-muted)] rounded-full h-2 border border-[color:var(--border-color)]">
+                <div
+                  className="h-2 rounded-full bg-[color:var(--accent)] transition-all"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, pageExportProgress || 0))}%`,
+                  }}
+                />
+              </div>
+              <div className="mt-2 text-xs text-[color:var(--text-muted)]">
+                {pageExportProgress ? `${pageExportProgress}%` : '0%'} -- Please wait, do not refresh
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

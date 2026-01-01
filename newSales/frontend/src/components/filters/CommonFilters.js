@@ -18,9 +18,9 @@ import StateMultiSelect from "./StateMultiSelect";
 
 /* ---------- shared styles ---------- */
 const labelCls =
-  "block text-[10px] font-semibold text-slate-600 tracking-wide";
+  "block text-[10px] font-semibold text-[color:var(--text-muted)] tracking-wide";
 const inputCls =
-  "mt-1 h-7 w-full rounded-md border border-slate-300 px-2 text-[11px] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200";
+  "mt-1 h-9 w-full rounded-md border border-[color:var(--border-color)] px-3 text-[11px] bg-[color:var(--surface)] text-[color:var(--text-primary)] placeholder:text-[color:var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]";
 
 /* ---------- text input ---------- */
 const TextInput = ({ label, value, onChange, placeholder = "Any" }) => (
@@ -39,26 +39,26 @@ const TextInput = ({ label, value, onChange, placeholder = "Any" }) => (
 function FilterSection({ icon: Icon, label, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border rounded-md">
+    <div className="border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full h-10 px-3 flex items-center justify-between"
       >
-        <span className="inline-flex items-center gap-2 text-[12px] font-medium text-slate-700">
-          <Icon className="w-4 h-4 text-slate-500" />
+        <span className="inline-flex items-center gap-2 text-[12px] font-medium text-[color:var(--text-primary)]">
+          <Icon className="w-4 h-4 text-[color:var(--text-muted)]" />
           {label}
         </span>
         {open ? (
-          <Minus className="w-4 h-4 text-slate-500" />
+          <Minus className="w-4 h-4 text-[color:var(--text-muted)]" />
         ) : (
-          <Plus className="w-4 h-4 text-slate-500" />
+          <Plus className="w-4 h-4 text-[color:var(--text-muted)]" />
         )}
       </button>
 
       {open && (
         <div className="px-3 pb-3 pt-0">
-          <div className="h-px bg-slate-200 mb-2" />
+          <div className="h-px bg-[color:var(--border-color)] mb-2" />
           <div className="space-y-2">{children}</div>
         </div>
       )}
@@ -76,6 +76,7 @@ export default function CommonFilters({
   setF,
   onSearch,
   onClear,
+  topSlot = null,
 }) {
   return (
     <div
@@ -86,24 +87,30 @@ export default function CommonFilters({
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="absolute -left-3 top-[5px] z-30 w-6 h-6 grid place-items-center rounded-full border bg-white shadow"
+          className="absolute -left-3 top-[5px] z-30 w-6 h-6 grid place-items-center rounded-full border border-[color:var(--border-color)] bg-[color:var(--surface)] shadow"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
       )}
 
       {open && (
-        <aside className="relative h-full bg-white border rounded-xl shadow-md">
+        <aside className="relative h-full bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-xl shadow-md text-[color:var(--text-primary)]">
           <button
             onClick={() => setOpen(false)}
-            className="absolute -right-3 top-[5px] z-30 w-6 h-6 grid place-items-center rounded-full border bg-white shadow"
+            className="absolute -right-3 top-[5px] z-30 w-6 h-6 grid place-items-center rounded-full border border-[color:var(--border-color)] bg-[color:var(--surface)] shadow"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
+          {topSlot ? (
+            <div className="p-3 border-b border-[color:var(--border-color)] bg-[color:var(--surface-muted)] rounded-t-xl">
+              {topSlot}
+            </div>
+          ) : null}
+
           {/* Header */}
-          <div className="h-10 px-3 border-b flex items-center gap-2 text-[12px] font-semibold text-slate-700">
-            <FilterIcon className="w-4 h-4 text-slate-600" />
+          <div className="h-10 px-3 border-b border-[color:var(--border-color)] flex items-center gap-2 text-[12px] font-semibold text-[color:var(--text-primary)]">
+            <FilterIcon className="w-4 h-4 text-[color:var(--text-muted)]" />
             Filter
           </div>
 

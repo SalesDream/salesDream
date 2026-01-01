@@ -3,7 +3,10 @@ const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 
 function sign(user){
-  return jwt.sign({ id:user.id, email:user.email, role:user.role }, process.env.JWT_SECRET || "devsecret", { expiresIn: "7d" });
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is required");
+  }
+  return jwt.sign({ id:user.id, email:user.email, role:user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
 
 exports.register = async (req, res) => {

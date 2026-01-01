@@ -17,9 +17,11 @@ const {
   sendMail, // generic mail
 } = require("../utils/email");
 
-const JWT_SECRET = process.env.JWT_SECRET || "devsecret";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required");
+}
 const OTP_TTL_SECONDS = Number(process.env.OTP_TTL_SECONDS || 600);
-const LOGIN_OTP_BYPASS_EMAIL = (process.env.LOGIN_OTP_BYPASS_EMAIL || "avinash@gmail.com").toLowerCase();
 
 // simple in-memory OTP store
 const otpStore = new Map();
@@ -92,6 +94,9 @@ exports.registerRequest = async (req, res) => {
 exports.registerVerify = async (req, res) => {
   const { email, otp, name, password } = req.body;
   if (!email || !otp) return res.status(400).json({ message: "Missing required fields" });
+  if (!password || String(password).trim().length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters" });
+  }
 
   try {
     const rec = getOtpRecord(`register:${email}`);
@@ -105,13 +110,12 @@ exports.registerVerify = async (req, res) => {
       return res.json({ token, user });
     }
 
-    // Use provided password if present, otherwise fall back to random password
-    const suppliedPassword = (password && String(password).trim().length > 0) ? String(password) : Math.random().toString(36).slice(2);
-    const hash = await bcrypt.hash(suppliedPassword, 10);
+    const normalizedPassword = String(password);
+    const hash = await bcrypt.hash(normalizedPassword, 10);
 
     const [result] = await pool.query(
       "INSERT INTO users (name, email, password_hash, password, role) VALUES (?, ?, ?, ?, ?)",
-      [name || "", email, hash, suppliedPassword, "user"]
+      [name || "", email, hash, null, "user"]
     );
 
     const user = { id: result.insertId, email, name: name || "", role: "user" };
@@ -120,19 +124,14 @@ exports.registerVerify = async (req, res) => {
     // Clear OTP now that registration succeeded
     clearOtp(`register:${email}`);
 
-    // Send welcome email with credentials (non-blocking)
+    // Send welcome email (non-blocking) without sharing credentials
     try {
-      const subject = "Welcome to SalesDream — your account details";
+      const subject = "Welcome to SalesDream";
       const html = `
         <h2>Welcome to SalesDream</h2>
         <p>Hi ${name || "there"},</p>
-        <p>Your account was created successfully. Here are your sign-in details:</p>
-        <ul>
-          <li><strong>Email:</strong> ${email}</li>
-          <li><strong>Password:</strong> ${suppliedPassword}</li>
-        </ul>
-        <p>For security, please change your password after first login.</p>
-        <p>If you did not sign up for SalesDream, please contact support immediately.</p>
+        <p>Your account was created successfully.</p>
+        <p>For security, we never email passwords. If you did not sign up for SalesDream, please contact support immediately.</p>
         <hr/>
         <small>SalesDream</small>
       `;
@@ -208,7 +207,7 @@ exports.forgotReset = async (req, res) => {
 
     // Hash and update DB. Update both password_hash and password columns per your table.
     const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query("UPDATE users SET password_hash = ?, password = ? WHERE email = ?", [hash, newPassword, email]);
+    await pool.query("UPDATE users SET password_hash = ?, password = NULL WHERE email = ?", [hash, email]);
 
     // clear OTP now that password is changed
     clearOtp(`forgot:${email}`);
@@ -219,11 +218,6 @@ exports.forgotReset = async (req, res) => {
       <h3>Your password has been changed</h3>
       <p>Dear user,</p>
       <p>Your account <b>${email}</b> password was updated successfully.</p>
-      <p><b>New credentials</b></p>
-      <ul>
-        <li>Email: ${email}</li>
-        <li>Password: ${newPassword}</li>
-      </ul>
       <p>If you did not perform this change, contact support immediately.</p>
     `;
 
@@ -281,7 +275,7 @@ exports.changePassword = async (req, res) => {
 
     // Hash new password and update DB (update both columns to keep parity)
     const newHash = await bcrypt.hash(String(newPassword), 10);
-    await pool.query("UPDATE users SET password_hash = ?, password = ? WHERE id = ?", [newHash, String(newPassword), userId]);
+    await pool.query("UPDATE users SET password_hash = ?, password = NULL WHERE id = ?", [newHash, userId]);
 
     // Optionally: you could revoke existing tokens/sessions here if you maintain a session store.
 
@@ -319,19 +313,6 @@ exports.loginRequest = async (req, res) => {
   if (!password) return res.status(400).json({ message: "Password required" });
 
   try {
-    // Allowlist bypass: still check blocked status for that user
-    if (String(email).toLowerCase() === LOGIN_OTP_BYPASS_EMAIL) {
-      const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
-      if (!rows.length) return res.status(404).json({ message: "Allowlisted user not found" });
-
-      const user = rows[0];
-      const blocked = ensureNotBlocked(user);
-      if (blocked) return res.status(blocked.status).json({ message: blocked.message });
-
-      const token = sign(user);
-      return res.json({ bypass: true, token, user });
-    }
-
     // Verify that user exists
     const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
     if (!rows.length) {
@@ -351,6 +332,11 @@ exports.loginRequest = async (req, res) => {
       if (!user.password || user.password !== password) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
+      // migrate legacy plaintext password to hashed + clear plaintext
+      const migratedHash = await bcrypt.hash(String(password), 10);
+      await pool.query("UPDATE users SET password_hash = ?, password = NULL WHERE id = ?", [migratedHash, user.id]);
+      user.password_hash = migratedHash;
+      user.password = null;
     } else {
       const match = await bcrypt.compare(password, user.password_hash);
       if (!match) return res.status(401).json({ message: "Invalid email or password" });

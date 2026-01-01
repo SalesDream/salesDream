@@ -54,26 +54,10 @@ const CSV_COLUMNS = [
   { key: "created_at", header: "Created At" },
 ];
 
-/* ---------------- Auth helpers ---------------- */
-function decodeJwt(token) {
-  try {
-    const payload = token.split(".")[1];
-    return JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
-  } catch {
-    return null;
-  }
-}
-
-function isAdminFromToken(req) {
-  const auth = req.headers.authorization || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return false;
-
-  const payload = decodeJwt(token);
-  if (!payload) return false;
-
-  const role = String(payload.role || "").toLowerCase();
-  return ["admin", "super_admin", "superadmin"].includes(role);
+function assertAdmin(req, res) {
+  if (req?.user?.role === "admin") return true;
+  if (res) res.status(403).json({ message: "Admin only" });
+  return false;
 }
 
 /* ---------------- CSV helpers ---------------- */
@@ -343,9 +327,7 @@ async function runExportWorker(jobId, filters, filepath) {
    Body: { filters: {...} }
 ----------------------------------------------- */
 exports.startExport = (req, res) => {
-  if (!isAdminFromToken(req)) {
-    return res.status(403).json({ message: "Admin only" });
-  }
+  if (!assertAdmin(req, res)) return;
 
   const jobId = crypto.randomBytes(10).toString("hex");
   const filename = `leads_export_${Date.now()}_${jobId}.csv`;
@@ -375,6 +357,7 @@ exports.startExport = (req, res) => {
    GET /api/export/status/:jobId
 --------------------------------------------- */
 exports.getStatus = (req, res) => {
+  if (!assertAdmin(req, res)) return;
   const job = getJob(req.params.jobId);
   if (!job) return res.status(404).json({ message: "Job not found" });
 
@@ -389,9 +372,7 @@ exports.getStatus = (req, res) => {
    GET /api/export/download/:jobId
 ------------------------------------------- */
 exports.downloadExport = (req, res) => {
-  if (!isAdminFromToken(req)) {
-    return res.status(403).json({ message: "Admin only" });
-  }
+  if (!assertAdmin(req, res)) return;
 
   const job = getJob(req.params.jobId);
   if (!job) return res.status(404).json({ message: "Job not found" });
@@ -426,9 +407,7 @@ function safeFilename(name) {
  * returns [{ filename, sizeBytes, exportedAt }]
  */
 exports.listExportFiles = (req, res) => {
-  if (!isAdminFromToken(req)) {
-    return res.status(403).json({ message: "Admin only" });
-  }
+  if (!assertAdmin(req, res)) return;
 
   try {
     if (!fs.existsSync(EXPORT_DIR_ABS)) return res.json({ files: [] });
@@ -458,9 +437,7 @@ exports.listExportFiles = (req, res) => {
  * download by filename anytime
  */
 exports.downloadByFilename = (req, res) => {
-  if (!isAdminFromToken(req)) {
-    return res.status(403).json({ message: "Admin only" });
-  }
+  if (!assertAdmin(req, res)) return;
 
   const filename = safeFilename(req.params.filename);
   if (!filename) return res.status(400).json({ message: "Invalid filename" });
@@ -478,9 +455,7 @@ exports.downloadByFilename = (req, res) => {
  * deletes a stored export file
  */
 exports.deleteExportFile = (req, res) => {
-  if (!isAdminFromToken(req)) {
-    return res.status(403).json({ message: "Admin only" });
-  }
+  if (!assertAdmin(req, res)) return;
 
   const filename = safeFilename(req.params.filename);
   if (!filename) return res.status(400).json({ message: "Invalid filename" });

@@ -1,7 +1,10 @@
 // src/middleware/requireAdmin.js
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db'); // adjust path if necessary
-const JWT_SECRET = process.env.JWT_SECRET || 'change_this_secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required for admin authentication");
+}
 
 async function requireAdmin(req, res, next) {
   try {

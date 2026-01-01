@@ -61,9 +61,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/data", dataRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Expose exports directory for downloaded files
-app.use('/exports', express.static(path.join(__dirname, 'exports')));
-
 // Export routes
 app.use('/api/export', exportRoutes);
 

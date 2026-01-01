@@ -19,13 +19,9 @@ import Signup from "./pages/Signup";
 import Layout from "./Layout";
 import NotFound from "./pages/NotFound";
 import { useAuthToken, useAuthRole, setAuth } from "./useAuth";
-import SearchByEmail from "./pages/SearchByEmail";
-import SearchByPhone from "./pages/SearchByPhone";
-import SearchByName from "./pages/SearchByName";
-import SearchByDomain from "./pages/SearchByDomain";
 import Forgot from "./pages/Forgot";
 import AdminDashboard from "./pages/AdminDashboard";
-import ExportedCsv from "./pages/ExportedCsv"; // ✅ NEW
+import ExportedCsv from "./pages/ExportedCsv";
 
 function ProtectedRoute({ roles }) {
   const token = useAuthToken();
@@ -58,6 +54,12 @@ function OAuthSuccess() {
 
   return <div className="p-6">Signing you in…</div>;
 }
+
+const SearchShell = (props) => (
+  <Layout>
+    <Dashboard {...props} />
+  </Layout>
+);
 
 export default function App() {
   const token = useAuthToken();
@@ -110,23 +112,23 @@ export default function App() {
         <Route path="/oauth-success" element={<OAuthSuccess />} />
 
         <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+          <Route path="/dashboard" element={<SearchShell pageTitle="Lead Finder" />} />
 
-          <Route path="/search-phone" element={<Layout><SearchByPhone /></Layout>} />
-          <Route path="/search-area-code" element={<Layout><NotFound /></Layout>} />
-          <Route path="/search-email" element={<Layout><SearchByEmail /></Layout>} />
-          <Route path="/search-by-email" element={<Layout><SearchByEmail /></Layout>} />
-          <Route path="/search-domain" element={<Layout><SearchByDomain /></Layout>} />
-          <Route path="/search-name" element={<Layout><SearchByName /></Layout>} />
+          {/* Unified search experience across all entry points */}
+          <Route path="/search-phone" element={<SearchShell pageTitle="Search by Phone" presetFocus="phone" showGlobalControls={false} showExportControls={false} />} />
+          <Route path="/search-area-code" element={<SearchShell pageTitle="Search by Area Code" presetFocus="phone" showGlobalControls={false} showExportControls={false} />} />
+          <Route path="/search-email" element={<SearchShell pageTitle="Search by Email" presetFocus="email" showGlobalControls={false} showExportControls={false} />} />
+          <Route path="/search-by-email" element={<SearchShell pageTitle="Search by Email" presetFocus="email" showGlobalControls={false} showExportControls={false} />} />
+          <Route path="/search-domain" element={<SearchShell pageTitle="Search by Domain" presetFocus="domain" showGlobalControls={false} showExportControls={false} />} />
+          <Route path="/search-name" element={<SearchShell pageTitle="Search by Name" presetFocus="name" showGlobalControls={false} showExportControls={false} />} />
           <Route path="/settings" element={<Layout><Settings /></Layout>} />
           <Route path="/change-password" element={<Layout><ChangePassword /></Layout>} />
 
-          {/* ✅ NEW PAGE */}
-          <Route path="/exported-csv" element={<Layout><ExportedCsv /></Layout>} />
         </Route>
 
         <Route element={<ProtectedRoute roles={["admin"]} />}>
           <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
+          <Route path="/exported-csv" element={<Layout><ExportedCsv /></Layout>} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

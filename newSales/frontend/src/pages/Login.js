@@ -140,7 +140,7 @@ export default function Login() {
 
   return (
     <div className="h-screen flex items-center justify-center bg-gradient-to-br from-cyan-50 via-sky-100 to-indigo-50 p-6">
-      <div className="w-full max-w-4xl rounded-2xl shadow-lg overflow-hidden grid grid-cols-1 md:grid-cols-2 bg-white">
+      <div className="w-full max-w-4xl rounded-2xl shadow-lg overflow-hidden grid grid-cols-1 md:grid-cols-2 bg-[color:var(--surface)] text-[color:var(--text-primary)]">
         <div
           className="hidden md:flex items-end justify-center relative"
           style={{
@@ -171,7 +171,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="p-6 md:p-10 bg-white max-h-screen overflow-auto flex items-center">
+        <div className="p-6 md:p-10 bg-[color:var(--surface)] max-h-screen overflow-auto flex items-center">
           <div className="w-full max-w-md mx-auto">
             <div className="flex items-center gap-3 mb-6">
               <AppLogo size={40} text="SalesDream" subtitle="Sign in to manage your B2B Leads" />
