@@ -14,6 +14,8 @@
   --sidebar-from: #0e5a88;
   --sidebar-to: #31a6f7;
   --shadow-soft: 0 20px 60px rgba(15, 23, 42, 0.08);
+  --scroll-thumb: #2563eb;
+  --scroll-track: #e5e7eb;
 }
 
 [data-theme="dark"] {
@@ -28,6 +30,8 @@
   --sidebar-from: #0b1325;
   --sidebar-to: #111827;
   --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --scroll-thumb: #38bdf8;
+  --scroll-track: #0b1220;
 }
 
 /* App globals */
@@ -62,6 +66,28 @@ input::placeholder, textarea::placeholder {
 }
 .muted-border {
   border-color: var(--border-color);
+}
+
+/* Global scrollbar styling (all scrollable areas) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: var(--scroll-track);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+  border: 2px solid var(--scroll-track);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--scroll-thumb) 85%, #fff 15%);
+}
+*::-webkit-scrollbar-track {
+  background: var(--scroll-track);
 }
 
 .surface-muted {

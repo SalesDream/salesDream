@@ -3,11 +3,11 @@ import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Check } from "lucide-react";
 import { US_STATES } from "./usStates";
 
-/* ---------- styles (same as initial UI) ---------- */
+/* ---------- styles (theme-aware) ---------- */
 const labelCls =
-  "block text-[10px] font-semibold text-slate-600 tracking-wide";
+  "block text-[10px] font-semibold text-[color:var(--text-muted)] tracking-wide";
 const inputCls =
-  "mt-1 h-7 w-full rounded-md border border-slate-300 px-2 text-[11px] flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-sky-200";
+  "mt-1 h-9 w-full rounded-md border border-[color:var(--border-color)] px-3 text-[11px] flex items-center justify-between bg-[color:var(--surface)] text-[color:var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]";
 
 /* =====================================================
    STATE MULTI SELECT (Checkbox + Search)
@@ -42,8 +42,7 @@ export default function StateMultiSelect({ value = [], onChange }) {
     }
   };
 
-  const displayValue =
-    value.length === 0 ? "Any" : value.join(", ");
+  const displayValue = value.length === 0 ? "Any" : value.join(", ");
 
   return (
     <div className="relative" ref={ref}>
@@ -57,25 +56,27 @@ export default function StateMultiSelect({ value = [], onChange }) {
       >
         <span
           className={`truncate ${
-            value.length === 0 ? "text-slate-400" : "text-slate-700"
+            value.length === 0
+              ? "text-[color:var(--text-muted)]"
+              : "text-[color:var(--text-primary)]"
           }`}
         >
           {displayValue}
         </span>
-        <span className="text-slate-400">▾</span>
+        <span className="text-[color:var(--text-muted)]">v</span>
       </button>
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg">
+        <div className="absolute z-50 mt-1 w-full bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-md shadow-lg text-[color:var(--text-primary)]">
           {/* Search box */}
-          <div className="p-2 border-b">
+          <div className="p-2 border-b border-[color:var(--border-color)] bg-[color:var(--surface-muted)]">
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search options..."
-              className="w-full h-7 px-2 text-[11px] border rounded focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="w-full h-8 px-2 text-[11px] rounded border border-[color:var(--border-color)] bg-[color:var(--surface)] text-[color:var(--text-primary)] placeholder:text-[color:var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
             />
           </div>
 
@@ -86,14 +87,14 @@ export default function StateMultiSelect({ value = [], onChange }) {
               return (
                 <label
                   key={s}
-                  className="flex items-center gap-2 px-3 py-1 text-[11px] cursor-pointer hover:bg-slate-50"
+                  className="flex items-center gap-2 px-3 py-1 text-[11px] cursor-pointer hover:bg-[color:var(--surface-muted)]"
                 >
                   <span
                     onClick={() => toggle(s)}
                     className={`w-4 h-4 border rounded grid place-items-center ${
                       checked
-                        ? "bg-sky-600 border-sky-600"
-                        : "border-slate-300"
+                        ? "bg-[color:var(--accent)] border-[color:var(--accent)] text-white"
+                        : "border-[color:var(--border-color)] text-[color:var(--text-primary)]"
                     }`}
                   >
                     {checked && <Check className="w-3 h-3 text-white" />}
@@ -104,7 +105,7 @@ export default function StateMultiSelect({ value = [], onChange }) {
             })}
 
             {filteredStates.length === 0 && (
-              <div className="px-3 py-2 text-[11px] text-slate-400">
+              <div className="px-3 py-2 text-[11px] text-[color:var(--text-muted)]">
                 No results found
               </div>
             )}
