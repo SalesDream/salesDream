@@ -42,6 +42,15 @@ const baseSections = [
       { to: "/change-password", label: "Change Password", icon: Key },
     ],
   },
+  {
+    title: "COLD EMAIL",
+    items: [
+      { to: "/cold-email/lists", label: "Lists", icon: UsersRound },
+      { to: "/cold-email/contacts", label: "Contacts", icon: Mail },
+      { to: "/cold-email/templates", label: "Templates", icon: FileText },
+      { to: "/cold-email/campaigns", label: "Campaigns", icon: MailPlus },
+    ],
+  },
 ];
 
 export default function Sidebar() {
