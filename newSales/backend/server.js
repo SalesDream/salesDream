@@ -9,6 +9,8 @@ const authRoutes = require("./src/routes/auth");
 const dataRoutes = require("./src/routes/data");
 const adminRoutes = require("./src/routes/admin");
 const exportRoutes = require("./src/routes/export");
+const coldEmailRoutes = require("./src/modules/coldEmail/routes");
+const { startColdEmailWorker } = require("./src/modules/coldEmail/worker");
 
 const app = express();
 
@@ -75,9 +77,16 @@ app.use("/api/auth", authRoutes);
 app.use("/api/data", dataRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/cold-email", coldEmailRoutes);
 
 /* =========================
    Start
    ========================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+if (process.env.COLD_EMAIL_WORKER_ENABLED !== "false") {
+  const intervalMs = Number(process.env.COLD_EMAIL_WORKER_INTERVAL_MS || 15000);
+  const batchSize = Number(process.env.COLD_EMAIL_WORKER_BATCH || 20);
+  startColdEmailWorker({ intervalMs, batchSize });
+}

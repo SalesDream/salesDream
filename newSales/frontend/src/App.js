@@ -22,6 +22,11 @@ import { useAuthToken, useAuthRole, setAuth } from "./useAuth";
 import Forgot from "./pages/Forgot";
 import AdminDashboard from "./pages/AdminDashboard";
 import ExportedCsv from "./pages/ExportedCsv";
+import ColdEmail from "./pages/ColdEmail";
+import ColdEmailLists from "./pages/ColdEmailLists";
+import ColdEmailContacts from "./pages/ColdEmailContacts";
+import ColdEmailTemplates from "./pages/ColdEmailTemplates";
+import ColdEmailCampaigns from "./pages/ColdEmailCampaigns";
 
 function ProtectedRoute({ roles }) {
   const token = useAuthToken();
@@ -123,6 +128,11 @@ export default function App() {
           <Route path="/search-name" element={<SearchShell pageTitle="Search by Name" presetFocus="name" showGlobalControls={false} showExportControls={false} />} />
           <Route path="/settings" element={<Layout><Settings /></Layout>} />
           <Route path="/change-password" element={<Layout><ChangePassword /></Layout>} />
+          <Route path="/cold-email" element={<Layout><ColdEmail /></Layout>} />
+          <Route path="/cold-email/lists" element={<Layout><ColdEmailLists /></Layout>} />
+          <Route path="/cold-email/contacts" element={<Layout><ColdEmailContacts /></Layout>} />
+          <Route path="/cold-email/templates" element={<Layout><ColdEmailTemplates /></Layout>} />
+          <Route path="/cold-email/campaigns" element={<Layout><ColdEmailCampaigns /></Layout>} />
 
         </Route>
 
