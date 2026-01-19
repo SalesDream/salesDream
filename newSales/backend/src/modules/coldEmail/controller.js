@@ -448,6 +448,44 @@ exports.addContacts = async (req, res) => {
   }
 };
 
+exports.importContactsDirect = async (req, res) => {
+  const userId = req.user?.id;
+  const rawListId = req.body?.list_id ?? req.body?.listId;
+  const listId = rawListId ? Number(rawListId) : null;
+
+  try {
+    if (listId) {
+      const list = await ensureListOwnership(listId, userId);
+      if (!list) return res.status(404).json({ message: "List not found" });
+    }
+
+    const contacts = buildContactsFromBody(req.body);
+    if (!contacts.length) {
+      return res.status(400).json({ message: "No valid contacts found" });
+    }
+
+    const emails = await upsertContacts(userId, contacts);
+    let addedToList = 0;
+
+    if (listId) {
+      const contactRows = await fetchContactIds(userId, emails);
+      addedToList = await attachContactsToList(
+        listId,
+        contactRows.map((r) => r.id)
+      );
+    }
+
+    return res.json({
+      inserted_contacts: emails.length,
+      list_id: listId || null,
+      added_to_list: addedToList,
+    });
+  } catch (err) {
+    console.error("coldEmail.importContactsDirect error:", err);
+    return res.status(500).json({ message: "Failed to add contacts" });
+  }
+};
+
 exports.removeContactsFromList = async (req, res) => {
   const userId = req.user?.id;
   const listId = Number(req.params.id);
