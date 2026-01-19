@@ -11,6 +11,8 @@ import {
   Key,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
+  ChevronRight,
   Wrench,
   UsersRound,
   MailPlus,
@@ -22,6 +24,13 @@ import { useAuthRole } from "../useAuth";
 
 const ACTIVE_BG = "bg-[#31A6F7]";
 const HOVER_BG = "hover:bg-white/10";
+
+const coldEmailItems = [
+  { to: "/cold-email/lists", label: "Lists", icon: UsersRound },
+  { to: "/cold-email/contacts", label: "Contacts", icon: Mail },
+  { to: "/cold-email/templates", label: "Templates", icon: FileText },
+  { to: "/cold-email/campaigns", label: "Campaigns", icon: MailPlus },
+];
 
 // base sections
 const baseSections = [
@@ -45,10 +54,7 @@ const baseSections = [
   {
     title: "COLD EMAIL",
     items: [
-      { to: "/cold-email/lists", label: "Lists", icon: UsersRound },
-      { to: "/cold-email/contacts", label: "Contacts", icon: Mail },
-      { to: "/cold-email/templates", label: "Templates", icon: FileText },
-      { to: "/cold-email/campaigns", label: "Campaigns", icon: MailPlus },
+      { label: "Cold Email", icon: Mail, children: coldEmailItems },
     ],
   },
 ];
@@ -66,6 +72,15 @@ export default function Sidebar() {
   }, [visible]);
 
   const [hovered, setHovered] = useState(false);
+  const [coldEmailOpen, setColdEmailOpen] = useState(() =>
+    pathname.startsWith("/cold-email")
+  );
+
+  useEffect(() => {
+    if (pathname.startsWith("/cold-email")) {
+      setColdEmailOpen(true);
+    }
+  }, [pathname]);
 
   if (!visible) {
     return (
@@ -94,7 +109,10 @@ export default function Sidebar() {
 
   const sections = baseSections.map((section) => ({
     title: section.title,
-    items: section.items.map((item) => ({ ...item })),
+    items: section.items.map((item) => ({
+      ...item,
+      children: item.children ? item.children.map((child) => ({ ...child })) : undefined,
+    })),
   }));
 
   if (role === "admin") {
@@ -225,6 +243,75 @@ export default function Sidebar() {
                               </Link>
                             </div>
                           </div>
+                        </div>
+                      );
+                    }
+
+                    if (item.children) {
+                      const Icon = item.icon || Mail;
+                      const isColdEmailActive = pathname.startsWith("/cold-email");
+                      const caretClass = "w-4 h-4 text-white/80";
+                      return (
+                        <div key={`${item.label}-${idx}`} className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setColdEmailOpen((open) => !open)}
+                            className={[
+                              "relative flex items-center transition text-white/90",
+                              hovered
+                                ? `mx-2 my-0.5 h-10 rounded-lg px-3 gap-3 w-[calc(100%-1rem)] ${HOVER_BG}`
+                                : `justify-center mx-2 my-0.5 h-10 w-10 rounded-full ${HOVER_BG}`,
+                            ].join(" ")}
+                            title={hovered ? undefined : item.label}
+                            aria-expanded={coldEmailOpen}
+                          >
+                            <span
+                              className={[
+                                "grid place-items-center",
+                                hovered ? "w-8 h-8 rounded-full" : "w-10 h-10 rounded-full",
+                                isColdEmailActive
+                                  ? `${ACTIVE_BG} text-white`
+                                  : "bg-transparent text-white",
+                              ].join(" ")}
+                            >
+                              <Icon className="w-5 h-5" />
+                            </span>
+                            {hovered && <span className="truncate text-white">{item.label}</span>}
+                            {hovered &&
+                              (coldEmailOpen ? (
+                                <ChevronDown className={`${caretClass} ml-auto`} />
+                              ) : (
+                                <ChevronRight className={`${caretClass} ml-auto`} />
+                              ))}
+                          </button>
+
+                          {hovered && coldEmailOpen && (
+                            <div className="mt-1 space-y-1">
+                              {item.children.map((child) => {
+                                const ChildIcon = child.icon || Mail;
+                                const childActive =
+                                  pathname === child.to || pathname.startsWith(`${child.to}/`);
+                                return (
+                                  <Link
+                                    key={child.to}
+                                    to={child.to}
+                                    className={[
+                                      "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
+                                      "mx-2 w-[calc(100%-1rem)]",
+                                      childActive
+                                        ? "bg-white/15 text-white"
+                                        : "text-white/90 hover:bg-white/10",
+                                    ].join(" ")}
+                                  >
+                                    <span className="grid place-items-center w-7 h-7 rounded-md bg-white/10 group-hover:bg-white/15">
+                                      <ChildIcon className="w-4 h-4" />
+                                    </span>
+                                    <span className="truncate">{child.label}</span>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     }

@@ -29,6 +29,7 @@ import {
   Globe2,
   Phone,
   Mail,
+  MailPlus,
   Linkedin,
   Facebook,
   Twitter,
@@ -126,8 +127,10 @@ const Chip = ({ children, onRemove }) => (
 );
 
 /* ---------- Compact sidebar typography ---------- */
-const labelCls = "block text-[10px] font-semibold text-[color:var(--text-primary)] tracking-wide";
-const inputCls = "mt-1 h-9 w-full rounded-md border border-[color:var(--border-color)] px-3 text-[11px] bg-[color:var(--surface)] text-[color:var(--text-primary)] placeholder:text-[color:var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]";
+const labelCls =
+  "block text-[10px] font-semibold text-[color:var(--text-primary)] tracking-wide";
+const inputCls =
+  "mt-1 h-9 w-full rounded-md border border-[color:var(--border-color)] px-3 text-[11px] bg-[color:var(--surface)] text-[color:var(--text-primary)] placeholder:text-[color:var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]";
 
 /* ---------- Tri toggle ---------- */
 const ToggleTri = ({ value, onChange }) => {
@@ -195,7 +198,9 @@ function MultiSelect({
           onClick={() => setOpen((v) => !v)}
           className={inputCls + " text-left"}
         >
-          {curValues && curValues.length ? `${curValues.length} selected` : "Any"}
+          {curValues && curValues.length
+            ? `${curValues.length} selected`
+            : "Any"}
         </button>
         {open && (
           <div className="absolute z-[60] mt-1 w-full max-h-64 overflow-auto bg-[color:var(--surface)] border rounded-md shadow-lg">
@@ -297,7 +302,9 @@ function FilterSection({ icon: Icon, label, children, defaultOpen = false }) {
       {open && (
         <div className="px-3 pb-3 pt-0">
           <div className="h-px bg-slate-200 mb-2" />
-          <div className="space-y-2"><span className="truncate">{children}</span></div>
+          <div className="space-y-2">
+            <span className="truncate">{children}</span>
+          </div>
         </div>
       )}
     </div>
@@ -448,6 +455,8 @@ export default function Dashboard({
   const [viewRows, setViewRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedCount, setSelectedCount] = useState(0);
+  const [addingToColdEmail, setAddingToColdEmail] = useState(false);
+  const [addToColdEmailStatus, setAddToColdEmailStatus] = useState(null);
 
   // server pagination
   const [pageSize, setPageSize] = useState(100);
@@ -456,7 +465,7 @@ export default function Dashboard({
 
   const location = useLocation();
   const pathname = location.pathname || "/dashboard";
-  const PAGE_OPTIONS = [100, 500, 1000,2000];
+  const PAGE_OPTIONS = [100, 500, 1000, 2000];
   const [pageOptionsOpen, setPageOptionsOpen] = useState(false);
 
   // Top global search
@@ -559,7 +568,13 @@ export default function Dashboard({
   // Admin check helper (kept)
   const getUserRole = () => {
     try {
-      const candidates = ["user", "profile", "authUser", "appUser", "currentUser"];
+      const candidates = [
+        "user",
+        "profile",
+        "authUser",
+        "appUser",
+        "currentUser",
+      ];
       for (const key of candidates) {
         const raw = localStorage.getItem(key);
         if (!raw) continue;
@@ -567,8 +582,10 @@ export default function Dashboard({
           const parsed = JSON.parse(raw);
           if (!parsed) continue;
           if (parsed.role) return String(parsed.role).toLowerCase();
-          if (parsed.user && parsed.user.role) return String(parsed.user.role).toLowerCase();
-          if (parsed.data && parsed.data.role) return String(parsed.data.role).toLowerCase();
+          if (parsed.user && parsed.user.role)
+            return String(parsed.user.role).toLowerCase();
+          if (parsed.data && parsed.data.role)
+            return String(parsed.data.role).toLowerCase();
         } catch {}
       }
 
@@ -577,10 +594,14 @@ export default function Dashboard({
           const parts = token.split(".");
           if (parts.length >= 2) {
             const payload = JSON.parse(
-              atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+              atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
             );
             if (payload.role) return String(payload.role).toLowerCase();
-            if (payload.roles && Array.isArray(payload.roles) && payload.roles.length) {
+            if (
+              payload.roles &&
+              Array.isArray(payload.roles) &&
+              payload.roles.length
+            ) {
               return String(payload.roles[0]).toLowerCase();
             }
             if (payload.user && payload.user.role) {
@@ -596,7 +617,13 @@ export default function Dashboard({
   const role = getUserRole();
   const isAdmin =
     role &&
-    ["admin", "super_admin", "super-admin", "super admin", "superadmin"].includes(role);
+    [
+      "admin",
+      "super_admin",
+      "super-admin",
+      "super admin",
+      "superadmin",
+    ].includes(role);
 
   /* ---------- Build query (for backend) ---------- */
   const buildQuery = (filters) => {
@@ -610,41 +637,74 @@ export default function Dashboard({
 
     set(
       "company_name",
-      filters.company_name?.join ? filters.company_name.join(",") : filters.company_name
+      filters.company_name?.join
+        ? filters.company_name.join(",")
+        : filters.company_name,
     );
     set("city", filters.city?.join ? filters.city.join(",") : filters.city);
     set("zip_code", filters.zip_code);
-    set("website", filters.website?.join ? filters.website.join(",") : filters.website);
+    set(
+      "website",
+      filters.website?.join ? filters.website.join(",") : filters.website,
+    );
     set("contact_full_name", filters.contact_full_name);
 
     set(
       "state_code",
-      filters.state_code?.join ? filters.state_code.join(",") : filters.state_code
+      filters.state_code?.join
+        ? filters.state_code.join(",")
+        : filters.state_code,
     );
     set(
       "company_location_country",
       filters.company_location_country?.join
         ? filters.company_location_country.join(",")
-        : filters.company_location_country
+        : filters.company_location_country,
     );
-    set("industry", filters.industry?.join ? filters.industry.join(",") : filters.industry);
+    set(
+      "industry",
+      filters.industry?.join ? filters.industry.join(",") : filters.industry,
+    );
     set("industry_source", filters.industry_source || "");
-    set("job_title", filters.job_title?.join ? filters.job_title.join(",") : filters.job_title);
+    set(
+      "job_title",
+      filters.job_title?.join ? filters.job_title.join(",") : filters.job_title,
+    );
     set(
       "contact_gender",
-      filters.contact_gender?.join ? filters.contact_gender.join(",") : filters.contact_gender
+      filters.contact_gender?.join
+        ? filters.contact_gender.join(",")
+        : filters.contact_gender,
     );
-    set("skills", filters.skills_tokens?.join ? filters.skills_tokens.join(",") : filters.skills_tokens);
+    set(
+      "skills",
+      filters.skills_tokens?.join
+        ? filters.skills_tokens.join(",")
+        : filters.skills_tokens,
+    );
 
-    if (filters.public_company !== "any") set("public_company", filters.public_company);
-    if (filters.franchise_flag !== "any") set("franchise_flag", filters.franchise_flag);
+    if (filters.public_company !== "any")
+      set("public_company", filters.public_company);
+    if (filters.franchise_flag !== "any")
+      set("franchise_flag", filters.franchise_flag);
 
-    set("employees", filters.employees?.join ? filters.employees.join(",") : filters.employees);
-    set("sales_volume", filters.sales_volume?.join ? filters.sales_volume.join(",") : filters.sales_volume);
+    set(
+      "employees",
+      filters.employees?.join ? filters.employees.join(",") : filters.employees,
+    );
+    set(
+      "sales_volume",
+      filters.sales_volume?.join
+        ? filters.sales_volume.join(",")
+        : filters.sales_volume,
+    );
 
     set("phone", filters.phone);
     set("normalized_email", filters.normalized_email);
-    set("domain", filters.domain?.join ? filters.domain.join(",") : filters.domain);
+    set(
+      "domain",
+      filters.domain?.join ? filters.domain.join(",") : filters.domain,
+    );
 
     // global search
     set("q", filters.q);
@@ -690,7 +750,11 @@ export default function Dashboard({
 
     const company =
       raw.company ||
-      pick("merged.Company", "merged.normalized_company_name", "linked.Company_Name") ||
+      pick(
+        "merged.Company",
+        "merged.normalized_company_name",
+        "linked.Company_Name",
+      ) ||
       merged.Company ||
       merged.normalized_company_name ||
       linked.Company_Name ||
@@ -714,7 +778,11 @@ export default function Dashboard({
 
     const state =
       raw.state ||
-      pick("merged.State", "linked.normalized_state", "merged.normalized_state") ||
+      pick(
+        "merged.State",
+        "linked.normalized_state",
+        "merged.normalized_state",
+      ) ||
       merged.State ||
       linked.normalized_state ||
       "";
@@ -729,7 +797,12 @@ export default function Dashboard({
 
     const phone =
       raw.phone ||
-      pick("merged.Telephone_Number", "merged.Phone", "linked.Phone_numbers", "linked.Mobile") ||
+      pick(
+        "merged.Telephone_Number",
+        "merged.Phone",
+        "linked.Phone_numbers",
+        "linked.Mobile",
+      ) ||
       merged.Telephone_Number ||
       merged.Phone ||
       linked.Phone_numbers ||
@@ -738,7 +811,12 @@ export default function Dashboard({
 
     const email =
       raw.email ||
-      pick("merged.normalized_email", "merged.Email", "linked.normalized_email", "linked.Emails") ||
+      pick(
+        "merged.normalized_email",
+        "merged.Email",
+        "linked.normalized_email",
+        "linked.Emails",
+      ) ||
       merged.normalized_email ||
       merged.Email ||
       linked.normalized_email ||
@@ -747,7 +825,11 @@ export default function Dashboard({
 
     const website =
       raw.website ||
-      pick("linked.Company_Website", "merged.normalized_website", "merged.Web_Address") ||
+      pick(
+        "linked.Company_Website",
+        "merged.normalized_website",
+        "merged.Web_Address",
+      ) ||
       linked.Company_Website ||
       merged.normalized_website ||
       merged.Web_Address ||
@@ -755,9 +837,11 @@ export default function Dashboard({
 
     const domain = raw.domain || website || "";
 
-    const employees = raw.employees || pick("merged.NumEmployees") || merged.NumEmployees || "";
+    const employees =
+      raw.employees || pick("merged.NumEmployees") || merged.NumEmployees || "";
 
-    const min_revenue = raw.min_revenue || pick("merged.SalesVolume") || merged.SalesVolume || "";
+    const min_revenue =
+      raw.min_revenue || pick("merged.SalesVolume") || merged.SalesVolume || "";
     const max_revenue = min_revenue;
 
     const linkedin_url =
@@ -796,7 +880,7 @@ export default function Dashboard({
   const facets = useMemo(() => {
     const uniq = (arr) =>
       Array.from(new Set(arr.filter(Boolean))).sort((a, b) =>
-        String(a).localeCompare(String(b))
+        String(a).localeCompare(String(b)),
       );
 
     const get = (r, path) => {
@@ -859,7 +943,8 @@ export default function Dashboard({
         for (const t of toks) skills.push(t);
       }
 
-      const comp = get(merged, "Company") || get(linked, "Company_Name") || row.company;
+      const comp =
+        get(merged, "Company") || get(linked, "Company_Name") || row.company;
       if (comp) companies.push(String(comp).trim());
 
       const site =
@@ -873,7 +958,8 @@ export default function Dashboard({
       const emp = get(merged, "NumEmployees") || row.employees;
       if (emp) employees_options.push(String(emp).trim());
 
-      const rev = get(merged, "SalesVolume") || row.min_revenue || row.max_revenue;
+      const rev =
+        get(merged, "SalesVolume") || row.min_revenue || row.max_revenue;
       if (rev) revenue_options.push(String(rev).trim());
 
       const indCandidates = [];
@@ -1014,7 +1100,9 @@ export default function Dashboard({
           <Globe2 className="w-3 h-3" />
           {website ? (
             <a
-              href={/^https?:\/\//.test(website) ? website : `https://${website}`}
+              href={
+                /^https?:\/\//.test(website) ? website : `https://${website}`
+              }
               target="_blank"
               rel="noreferrer"
               className="text-sky-700 hover:underline truncate"
@@ -1059,8 +1147,28 @@ export default function Dashboard({
   /* ---------- Columns ---------- */
   const baseColumns = useMemo(
     () => [
-     
-      { headerName: "Employees", field: "employees", flex: 0.6, minWidth: 110, sortable: true },
+      {
+        headerName: "",
+        field: "__sel__",
+        checkboxSelection: true,
+        headerCheckboxSelection: true,
+        width: 44,
+        minWidth: 44,
+        maxWidth: 44,
+        pinned: "left",
+        suppressSizeToFit: true,
+        sortable: false,
+        resizable: false,
+        filter: false,
+        lockPosition: true,
+      },
+      {
+        headerName: "Employees",
+        field: "employees",
+        flex: 0.6,
+        minWidth: 110,
+        sortable: true,
+      },
       {
         headerName: "Revenue (Minâ€“Max)",
         field: "min_revenue",
@@ -1074,7 +1182,7 @@ export default function Dashboard({
         sortable: true,
       },
     ],
-    []
+    [],
   );
 
   const ALL_FIELDS = [
@@ -1126,37 +1234,43 @@ export default function Dashboard({
   }, [baseColumns]);
 
   const extraColumns = useMemo(() => {
-    return ALL_FIELDS.filter((ff) => !excludeFromExtras.has(ff)).map((field) => {
-      const def = {
-        headerName: field === "name" ? "Full name" : toHeader(field),
-        field,
-        minWidth: 140,
-        sortable: true,
-        cellRenderer: undefined,
-        type: numericRight.has(field) ? "rightAligned" : undefined,
-        valueFormatter: (params) => {
-          const v = params.value;
-          if (
-            v === undefined ||
-            v === null ||
-            (typeof v === "string" && v.trim() === "")
+    return ALL_FIELDS.filter((ff) => !excludeFromExtras.has(ff)).map(
+      (field) => {
+        const def = {
+          headerName: field === "name" ? "Full name" : toHeader(field),
+          field,
+          minWidth: 140,
+          sortable: true,
+          cellRenderer: undefined,
+          type: numericRight.has(field) ? "rightAligned" : undefined,
+          valueFormatter: (params) => {
+            const v = params.value;
+            if (
+              v === undefined ||
+              v === null ||
+              (typeof v === "string" && v.trim() === "")
+            )
+              return "--";
+            return v;
+          },
+        };
+
+        if (
+          ["website", "domain", "linkedin_url", "facebook", "twitter"].includes(
+            field,
           )
-            return "--";
-          return v;
-        },
-      };
+        ) {
+          def.cellRenderer = LinkCell;
+          def.minWidth = 180;
+        }
+        if (field === "created_at") {
+          def.cellRenderer = DateCell;
+          def.minWidth = 150;
+        }
 
-      if (["website", "domain", "linkedin_url", "facebook", "twitter"].includes(field)) {
-        def.cellRenderer = LinkCell;
-        def.minWidth = 180;
-      }
-      if (field === "created_at") {
-        def.cellRenderer = DateCell;
-        def.minWidth = 150;
-      }
-
-      return def;
-    });
+        return def;
+      },
+    );
   }, [excludeFromExtras]);
 
   const columnDefs = useMemo(() => {
@@ -1232,7 +1346,7 @@ export default function Dashboard({
         return params && params.value !== undefined ? params.value : "";
       },
     }),
-    []
+    [],
   );
 
   /* ---------- Hidden columns controls ---------- */
@@ -1249,7 +1363,7 @@ export default function Dashboard({
   const allColumnItems = useMemo(() => {
     const map = new Map();
     (columnDefs || []).forEach((c) => {
-      if (!c || !c.field) return;
+      if (!c || !c.field || c.field === "__sel__") return;
       if (!map.has(c.field)) {
         map.set(c.field, {
           field: c.field,
@@ -1262,7 +1376,10 @@ export default function Dashboard({
 
   useEffect(() => {
     try {
-      localStorage.setItem("dashboard_hidden_columns", JSON.stringify(hiddenCols || []));
+      localStorage.setItem(
+        "dashboard_hidden_columns",
+        JSON.stringify(hiddenCols || []),
+      );
     } catch {}
 
     if (!gridRef.current?.columnApi) return;
@@ -1284,7 +1401,8 @@ export default function Dashboard({
   };
 
   const selectAllColumns = () => setHiddenCols([]);
-  const clearAllColumns = () => setHiddenCols(allColumnItems.map((c) => c.field));
+  const clearAllColumns = () =>
+    setHiddenCols(allColumnItems.map((c) => c.field));
   const resetColumns = () => {
     setHiddenCols([]);
     try {
@@ -1300,11 +1418,121 @@ export default function Dashboard({
     setSelectedCount(count);
   }, []);
 
+  useEffect(() => {
+    if (selectedCount === 0) {
+      setAddToColdEmailStatus(null);
+    }
+  }, [selectedCount]);
+
+  const getPrimaryEmail = (value) => {
+    if (!value) return "";
+    if (Array.isArray(value)) return String(value[0] || "").trim();
+    const s = String(value).trim();
+    if (!s) return "";
+    const parts = s.split(/[,\s;]+/).filter(Boolean);
+    return parts[0] || "";
+  };
+
+  const buildContactPayload = (row) => {
+    if (!row) return null;
+    const email = getPrimaryEmail(row.email);
+    if (!email) return null;
+
+    const customFields = {};
+    const addCustom = (key, val) => {
+      if (val === undefined || val === null) return;
+      const str = String(val).trim();
+      if (!str) return;
+      customFields[key] = val;
+    };
+
+    addCustom("source", "dashboard");
+    addCustom("lead_id", row._id || row.id);
+    addCustom("phone", row.phone);
+    addCustom("city", row.city);
+    addCustom("state", row.state);
+    addCustom("country", row.country);
+    addCustom("website", row.website);
+    addCustom("domain", row.domain);
+    addCustom("linkedin_url", row.linkedin_url);
+
+    const payload = {
+      email,
+      first_name: row.first_name || "",
+      last_name: row.last_name || "",
+      company: row.company || "",
+      title: row.job_title || "",
+    };
+
+    if (Object.keys(customFields).length) {
+      payload.custom_fields = customFields;
+    }
+
+    return payload;
+  };
+
+  const addSelectedToColdEmail = async () => {
+    const selectedRows = gridRef.current?.api?.getSelectedRows() || [];
+    if (!selectedRows.length) {
+      setAddToColdEmailStatus({
+        type: "error",
+        message: "Select at least one row to add.",
+      });
+      return;
+    }
+
+    const contacts = selectedRows
+      .map((row) => buildContactPayload(row))
+      .filter(Boolean);
+    const skipped = selectedRows.length - contacts.length;
+
+    if (!contacts.length) {
+      setAddToColdEmailStatus({
+        type: "error",
+        message: "No selected rows contain a valid email.",
+      });
+      return;
+    }
+
+    setAddingToColdEmail(true);
+    setAddToColdEmailStatus(null);
+    try {
+      const res = await api.post("/api/cold-email/contacts/import", {
+        contacts,
+      });
+      const inserted =
+        res?.data?.inserted_contacts ??
+        res?.data?.added_contacts ??
+        contacts.length;
+      let message = `Added ${inserted} contact${inserted === 1 ? "" : "s"}.`;
+      if (skipped > 0) {
+        message += ` ${skipped} row${skipped === 1 ? "" : "s"} skipped (missing email).`;
+      }
+      setAddToColdEmailStatus({ type: "success", message });
+      gridRef.current?.api?.deselectAll();
+      setSelectedCount(0);
+    } catch (err) {
+      setAddToColdEmailStatus({
+        type: "error",
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to add contacts.",
+      });
+    } finally {
+      setAddingToColdEmail(false);
+    }
+  };
+
   const onGridReady = useCallback(() => {
     try {
       const stored = localStorage.getItem("dashboard_hidden_columns");
       const hidden = stored ? JSON.parse(stored) : [];
-      if (Array.isArray(hidden) && hidden.length && gridRef.current?.columnApi) {
+      if (
+        Array.isArray(hidden) &&
+        hidden.length &&
+        gridRef.current?.columnApi
+      ) {
         hidden.forEach((field) => {
           try {
             gridRef.current.columnApi.setColumnVisible(field, false);
@@ -1327,8 +1555,11 @@ export default function Dashboard({
     if (f.state_code?.length) {
       f.state_code.forEach((v) =>
         push(`State: ${v}`, () =>
-          setF((s) => ({ ...s, state_code: s.state_code.filter((x) => x !== v) }))
-        )
+          setF((s) => ({
+            ...s,
+            state_code: s.state_code.filter((x) => x !== v),
+          })),
+        ),
       );
     }
 
@@ -1337,67 +1568,79 @@ export default function Dashboard({
         push(`Country: ${v}`, () =>
           setF((s) => ({
             ...s,
-            company_location_country: s.company_location_country.filter((x) => x !== v),
-          }))
-        )
+            company_location_country: s.company_location_country.filter(
+              (x) => x !== v,
+            ),
+          })),
+        ),
       );
     }
 
     if (f.industry?.length) {
       f.industry.forEach((v) =>
         push(`Industry: ${v}`, () =>
-          setF((s) => ({ ...s, industry: s.industry.filter((x) => x !== v) }))
-        )
+          setF((s) => ({ ...s, industry: s.industry.filter((x) => x !== v) })),
+        ),
       );
     }
 
     if (f.industry_source) {
       push(`Industry Source: ${f.industry_source}`, () =>
-        setF((s) => ({ ...s, industry_source: "" }))
+        setF((s) => ({ ...s, industry_source: "" })),
       );
     }
 
     if (f.contact_full_name) {
       push(`Contact ~ ${f.contact_full_name}`, () =>
-        setF((s) => ({ ...s, contact_full_name: "" }))
+        setF((s) => ({ ...s, contact_full_name: "" })),
       );
     }
 
     if (f.skills_tokens?.length) {
       f.skills_tokens.forEach((v) =>
         push(`Skill: ${v}`, () =>
-          setF((s) => ({ ...s, skills_tokens: s.skills_tokens.filter((x) => x !== v) }))
-        )
+          setF((s) => ({
+            ...s,
+            skills_tokens: s.skills_tokens.filter((x) => x !== v),
+          })),
+        ),
       );
     }
 
     if (f.employees?.length) {
       f.employees.forEach((v) =>
         push(`Employees: ${v}`, () =>
-          setF((s) => ({ ...s, employees: s.employees.filter((x) => x !== v) }))
-        )
+          setF((s) => ({
+            ...s,
+            employees: s.employees.filter((x) => x !== v),
+          })),
+        ),
       );
     }
 
     if (f.sales_volume?.length) {
       f.sales_volume.forEach((v) =>
         push(`Revenue: ${v}`, () =>
-          setF((s) => ({ ...s, sales_volume: s.sales_volume.filter((x) => x !== v) }))
-        )
+          setF((s) => ({
+            ...s,
+            sales_volume: s.sales_volume.filter((x) => x !== v),
+          })),
+        ),
       );
     }
 
-    if (f.phone) push(`Phone: ${f.phone}`, () => setF((s) => ({ ...s, phone: "" })));
+    if (f.phone)
+      push(`Phone: ${f.phone}`, () => setF((s) => ({ ...s, phone: "" })));
     if (f.normalized_email)
       push(`Email: ${f.normalized_email}`, () =>
-        setF((s) => ({ ...s, normalized_email: "" }))
+        setF((s) => ({ ...s, normalized_email: "" })),
       );
 
     if (f.domain?.length) {
       f.domain.forEach((v) =>
         push(`Domain: ${v}`, () =>
-          setF((s) => ({ ...s, domain: s.domain.filter((x) => x !== v) }))
-        )
+          setF((s) => ({ ...s, domain: s.domain.filter((x) => x !== v) })),
+        ),
       );
     }
 
@@ -1414,10 +1657,22 @@ export default function Dashboard({
       key: "phone",
       placeholder: "Enter phone (e.g. +1 415 555 0123 or 4155550123)",
     },
-    "/search-are×code": { key: "phone", placeholder: "Enter area code (e.g. 415)" },
-    "/search-email": { key: "normalized_email", placeholder: "Enter email or partial (e.g. alice@, @gmail.com)" },
-    "/search-domain": { key: "domain", placeholder: "Enter domain or website (e.g. example.com)" },
-    "/search-name": { key: "contact_full_name", placeholder: "Enter full or partial name (e.g. John Smith)" },
+    "/search-are×code": {
+      key: "phone",
+      placeholder: "Enter area code (e.g. 415)",
+    },
+    "/search-email": {
+      key: "normalized_email",
+      placeholder: "Enter email or partial (e.g. alice@, @gmail.com)",
+    },
+    "/search-domain": {
+      key: "domain",
+      placeholder: "Enter domain or website (e.g. example.com)",
+    },
+    "/search-name": {
+      key: "contact_full_name",
+      placeholder: "Enter full or partial name (e.g. John Smith)",
+    },
   };
   const isQuickPage = pathname !== "/dashboard" && quickMap[pathname];
 
@@ -1434,7 +1689,9 @@ export default function Dashboard({
     <div className="rounded-lg border border-[color:var(--border-color)] bg-[color:var(--surface-muted)] p-3 space-y-3 shadow-sm">
       <div className="flex items-center justify-between text-xs font-semibold text-[color:var(--text-primary)] uppercase tracking-wide">
         <span>Quick search</span>
-        <span className="text-[10px] text-[color:var(--text-muted)]">{quickMap[pathname].placeholder.split(" ")[0]}</span>
+        <span className="text-[10px] text-[color:var(--text-muted)]">
+          {quickMap[pathname].placeholder.split(" ")[0]}
+        </span>
       </div>
 
       <div className="space-y-3">
@@ -1494,8 +1751,12 @@ export default function Dashboard({
         total = payload.length;
       } else {
         hits = Array.isArray(payload.data) ? payload.data : [];
-        const metaTotal = payload.meta && (payload.meta.total || payload.meta.count);
-        total = metaTotal !== undefined && metaTotal !== null ? metaTotal : hits.length;
+        const metaTotal =
+          payload.meta && (payload.meta.total || payload.meta.count);
+        total =
+          metaTotal !== undefined && metaTotal !== null
+            ? metaTotal
+            : hits.length;
       }
 
       const normalized = hits.map((h) => normalizeRow(h));
@@ -1504,7 +1765,11 @@ export default function Dashboard({
       setSelectedCount(0);
       setPage(pageNumber);
       const parsedTotal = Number(String(total || "").replace(/[^0-9]/g, ""));
-      setTotalHits(Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : normalized.length);
+      setTotalHits(
+        Number.isFinite(parsedTotal) && parsedTotal > 0
+          ? parsedTotal
+          : normalized.length,
+      );
     } catch (e) {
       console.error("fetchPage error", e);
       setRowData([]);
@@ -1762,7 +2027,9 @@ export default function Dashboard({
       } catch (e) {
         setExporting(false);
         setExportError(
-          e?.response?.data?.message || e?.message || "Failed to fetch export status"
+          e?.response?.data?.message ||
+            e?.message ||
+            "Failed to fetch export status",
         );
         stopExportPolling();
         localStorage.removeItem(EXPORT_JOB_LS_KEY);
@@ -1787,7 +2054,7 @@ export default function Dashboard({
       const resp = await api.post(
         "/api/export/start",
         { filters: filtersPayload },
-        { headers }
+        { headers },
       );
 
       const jobId = resp?.data?.jobId;
@@ -1798,7 +2065,7 @@ export default function Dashboard({
       await pollExportStatus(jobId);
     } catch (e) {
       setExportError(
-        e?.response?.data?.message || e?.message || "Failed to start export"
+        e?.response?.data?.message || e?.message || "Failed to start export",
       );
       setExporting(false);
       setExportJob(null);
@@ -1836,7 +2103,7 @@ export default function Dashboard({
       setExportError(null);
     } catch (e) {
       setExportError(
-        e?.response?.data?.message || e?.message || "Download failed"
+        e?.response?.data?.message || e?.message || "Download failed",
       );
     }
   };
@@ -1866,10 +2133,14 @@ export default function Dashboard({
 
   const heading = pageTitle || "Lead Finder";
   const globalPlaceholder = (() => {
-    if (presetFocus === "phone") return "Search by phone, name, email, company, domainâ€¦";
-    if (presetFocus === "email") return "Search by email, name, company, city, job titleâ€¦";
-    if (presetFocus === "domain") return "Search by domain, website, company, name, titleâ€¦";
-    if (presetFocus === "name") return "Search by name, email, company, city, skillsâ€¦";
+    if (presetFocus === "phone")
+      return "Search by phone, name, email, company, domainâ€¦";
+    if (presetFocus === "email")
+      return "Search by email, name, company, city, job titleâ€¦";
+    if (presetFocus === "domain")
+      return "Search by domain, website, company, name, titleâ€¦";
+    if (presetFocus === "name")
+      return "Search by name, email, company, city, skillsâ€¦";
     return "Search name, email, city, industry, domain, website, skill, job titleâ€¦";
   })();
 
@@ -1903,7 +2174,7 @@ export default function Dashboard({
                   value={globalSearch}
                   onChange={(e) => setGlobalSearch(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') runSearch();
+                    if (e.key === "Enter") runSearch();
                   }}
                   placeholder={globalPlaceholder}
                   className="h-10 w-full rounded-lg border border-[color:var(--border-color)] bg-[color:var(--surface)] px-3 pr-16 text-sm text-[color:var(--text-primary)] shadow-sm focus:ring-2 focus:ring-[color:var(--accent)]"
@@ -1996,37 +2267,68 @@ export default function Dashboard({
                 )}
               </div>
 
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  onClick={addSelectedToColdEmail}
+                  disabled={
+                    selectedCount === 0 || addingToColdEmail || pageExporting
+                  }
+                  title="Add selected rows to cold email contacts"
+                  className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md text-sm transition ${
+                    selectedCount === 0 || addingToColdEmail || pageExporting
+                      ? "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] cursor-not-allowed"
+                      : "bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]"
+                  }`}
+                  type="button"
+                >
+                  {addingToColdEmail ? (
+                    <>
+                      <BtnSpinner />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <MailPlus className="w-4 h-4" />
+                      <span>
+                        Add to Cold Email
+                        {selectedCount > 0 ? ` (${selectedCount})` : ""}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+
               {showExports && (
                 <div className="hidden sm:flex items-center gap-2">
                   <button
                     onClick={exportCSV}
                     disabled={pageExporting}
-                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     type="button"
                   >
-                    {activeExportBtn === 'csv' ? (
+                    {activeExportBtn === "csv" ? (
                       <>
                         <BtnSpinner />
                         Exporting CSV...
                       </>
                     ) : (
-                      'CSV'
+                      "CSV"
                     )}
                   </button>
 
                   <button
                     onClick={exportExcel}
                     disabled={pageExporting}
-                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     type="button"
                   >
-                    {activeExportBtn === 'excel' ? (
+                    {activeExportBtn === "excel" ? (
                       <>
                         <BtnSpinner />
                         Exporting Excel...
                       </>
                     ) : (
-                      'Excel'
+                      "Excel"
                     )}
                   </button>
 
@@ -2035,7 +2337,7 @@ export default function Dashboard({
                       onClick={startExportAllCSV}
                       disabled={exporting || pageExporting}
                       title="Export all records (server job)"
-                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border border-[color:var(--border-color)] transition ${exporting || pageExporting ? 'bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] cursor-not-allowed' : 'bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]'}`}
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border border-[color:var(--border-color)] transition ${exporting || pageExporting ? "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] cursor-not-allowed" : "bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]"}`}
                       type="button"
                     >
                       {exporting ? (
@@ -2060,7 +2362,11 @@ export default function Dashboard({
                               d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
                             />
                           </svg>
-                          <span>{exportProgress ? `${exportProgress}%` : 'Exporting...'}</span>
+                          <span>
+                            {exportProgress
+                              ? `${exportProgress}%`
+                              : "Exporting..."}
+                          </span>
                         </>
                       ) : (
                         <>
@@ -2075,9 +2381,25 @@ export default function Dashboard({
 
               <div className="sm:hidden inline-flex items-center gap-1">
                 <button
+                  onClick={addSelectedToColdEmail}
+                  disabled={
+                    selectedCount === 0 || addingToColdEmail || pageExporting
+                  }
+                  className={`p-2 border rounded-md ${
+                    selectedCount === 0 || addingToColdEmail || pageExporting
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                  title="Add to Cold Email"
+                  type="button"
+                >
+                  <MailPlus className="w-4 h-4" />
+                </button>
+
+                <button
                   onClick={exportCSV}
                   disabled={pageExporting}
-                  className={`p-2 border rounded-md ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`p-2 border rounded-md ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                   title="CSV"
                   type="button"
                 >
@@ -2087,7 +2409,7 @@ export default function Dashboard({
                 <button
                   onClick={exportExcel}
                   disabled={pageExporting}
-                  className={`p-2 border rounded-md ${pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`p-2 border rounded-md ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                   title="Excel"
                   type="button"
                 >
@@ -2098,7 +2420,7 @@ export default function Dashboard({
                   <button
                     onClick={startExportAllCSV}
                     disabled={exporting || pageExporting}
-                    className={`p-2 border rounded-md ${exporting || pageExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`p-2 border rounded-md ${exporting || pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     title="Export All (CSV)"
                     type="button"
                   >
@@ -2110,6 +2432,21 @@ export default function Dashboard({
           ) : null}
         </div>
 
+        {addToColdEmailStatus && (
+          <div className="mb-2">
+            <div
+              className={`px-3 py-2 text-xs rounded-md border ${
+                addToColdEmailStatus.type === "error"
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              }`}
+              role="status"
+            >
+              {addToColdEmailStatus.message}
+            </div>
+          </div>
+        )}
+
         {showExports && isAdmin && (exportJob || exporting || exportError) && (
           <div className="mb-2">
             <div className="bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-xl shadow-sm px-3 py-2">
@@ -2120,18 +2457,18 @@ export default function Dashboard({
                     <span className="text-sm text-[color:var(--text-primary)]">
                       {exportJob?.jobId ||
                         localStorage.getItem(EXPORT_JOB_LS_KEY) ||
-                        (exporting ? 'starting...' : '')}
+                        (exporting ? "starting..." : "")}
                     </span>
                     {exportJob?.status && (
                       <span
                         className="ml-2 text-xs px-2 py-0.5 rounded text-white"
                         style={{
                           background:
-                            exportJob.status === 'done'
-                              ? '#16a34a'
-                              : exportJob.status === 'error'
-                              ? '#dc2626'
-                              : '#0ea5e9',
+                            exportJob.status === "done"
+                              ? "#16a34a"
+                              : exportJob.status === "error"
+                                ? "#dc2626"
+                                : "#0ea5e9",
                         }}
                       >
                         {exportJob.status}
@@ -2145,7 +2482,7 @@ export default function Dashboard({
                         className="h-2 rounded"
                         style={{
                           width: `${Math.min(100, Math.max(0, exportProgress || 0))}%`,
-                          background: '#06b6d4',
+                          background: "#06b6d4",
                         }}
                       />
                     </div>
@@ -2153,10 +2490,10 @@ export default function Dashboard({
                       {exporting
                         ? `Exporting... ${exportProgress || 0}%`
                         : exportJob?.status
-                        ? `Status: ${exportJob.status} ${
-                            exportProgress ? ` - ${exportProgress}%` : ''
-                          }`
-                        : ''}
+                          ? `Status: ${exportJob.status} ${
+                              exportProgress ? ` - ${exportProgress}%` : ""
+                            }`
+                          : ""}
                       {exportError && (
                         <span className="text-red-600 ml-2">
                           Error: {exportError}
@@ -2167,11 +2504,12 @@ export default function Dashboard({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {exportJob?.status === 'done' && (
+                  {exportJob?.status === "done" && (
                     <button
                       onClick={() =>
                         downloadExportByJobId(
-                          exportJob?.jobId || localStorage.getItem(EXPORT_JOB_LS_KEY)
+                          exportJob?.jobId ||
+                            localStorage.getItem(EXPORT_JOB_LS_KEY),
                         )
                       }
                       className="inline-flex items-center gap-2 px-3 py-1 border rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]"
@@ -2187,7 +2525,7 @@ export default function Dashboard({
           </div>
         )}
 
-        {hasApplied && activeChips.length > 0 && (
+        {/* {hasApplied && activeChips.length > 0 && (
           <div ref={chipBarRef} className="mb-2">
             <div className="bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-xl shadow-sm px-3 py-2 flex flex-wrap items-center gap-1">
               <span className="text-[11px] font-medium text-[color:var(--text-primary)] mr-1">
@@ -2200,7 +2538,7 @@ export default function Dashboard({
               ))}
             </div>
           </div>
-        )}
+        )} */}
 
         <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-visible">
           {!hasApplied && !isQuickPage ? (
@@ -2209,15 +2547,15 @@ export default function Dashboard({
             <div
               className="relative ag-theme-quartz card border border-[color:var(--border-color)] rounded-xl h-full w-full overflow-hidden"
               style={{
-                '--ag-header-background-color': '#deeff7ff',
-                '--ag-header-foreground-color': '#1f2933',
-                '--ag-header-height': '44px',
-                '--ag-border-color': 'var(--border-color)',
-                '--ag-header-column-separator-display': 'block',
-                '--ag-header-column-separator-color': 'rgba(0,0,0,0.08)',
-                '--ag-header-column-resize-handle-color': 'rgba(0,0,0,0.2)',
-                '--ag-odd-row-background-color': 'var(--surface-muted)',
-                '--ag-background-color': 'var(--surface)',
+                "--ag-header-background-color": "#deeff7ff",
+                "--ag-header-foreground-color": "#1f2933",
+                "--ag-header-height": "44px",
+                "--ag-border-color": "var(--border-color)",
+                "--ag-header-column-separator-display": "block",
+                "--ag-header-column-separator-color": "rgba(0,0,0,0.08)",
+                "--ag-header-column-resize-handle-color": "rgba(0,0,0,0.2)",
+                "--ag-odd-row-background-color": "var(--surface-muted)",
+                "--ag-background-color": "var(--surface)",
               }}
             >
               <div className="h-full w-full overflow-auto">
@@ -2234,7 +2572,7 @@ export default function Dashboard({
                   onSelectionChanged={onSelectionChanged}
                   onGridReady={onGridReady}
                   rowHeight={56}
-                  style={{ width: '100%', height: '100%' }}
+                  style={{ width: "100%", height: "100%" }}
                 />
               </div>
 
@@ -2249,7 +2587,9 @@ export default function Dashboard({
           )}
 
           {!loading && hasApplied && viewRows.length === 0 && (
-            <div className="text-xs text-[color:var(--text-muted)]">No data found.</div>
+            <div className="text-xs text-[color:var(--text-muted)]">
+              No data found.
+            </div>
           )}
         </div>
 
@@ -2265,9 +2605,14 @@ export default function Dashboard({
                 disabled={pageExporting}
                 className="inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Showing <span className="font-semibold">{Math.min(totalHits, pageSize)}</span> rows of <span className="font-semibold">{totalHitsDisplay}</span>
+                Showing{" "}
+                <span className="font-semibold">
+                  {Math.min(totalHits, pageSize)}
+                </span>{" "}
+                rows of{" "}
+                <span className="font-semibold">{totalHitsDisplay}</span>
                 <svg
-                  className={`w-4 h-4 transition-transform ${pageOptionsOpen ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 transition-transform ${pageOptionsOpen ? "rotate-180" : ""}`}
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -2284,7 +2629,9 @@ export default function Dashboard({
                   style={{ minWidth: 160, bottom: "calc(100% + 8px)" }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="p-2 text-xs text-[color:var(--text-muted)]">Rows per page</div>
+                  <div className="p-2 text-xs text-[color:var(--text-muted)]">
+                    Rows per page
+                  </div>
                   <div className="max-h-56 overflow-auto divide-y divide-[color:var(--border-color)]">
                     {PAGE_OPTIONS.map((opt) => (
                       <button
@@ -2294,7 +2641,7 @@ export default function Dashboard({
                           setPageSize(Number(opt));
                           if (hasApplied) fetchPage(0, {});
                         }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-[color:var(--surface-muted)] ${Number(pageSize) === Number(opt) ? 'font-medium text-[color:var(--accent)]' : 'text-[color:var(--text-primary)]'}`}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-[color:var(--surface-muted)] ${Number(pageSize) === Number(opt) ? "font-medium text-[color:var(--accent)]" : "text-[color:var(--text-primary)]"}`}
                         type="button"
                       >
                         {opt} rows
@@ -2315,7 +2662,8 @@ export default function Dashboard({
                 Prev
               </button>
               <div className="text-sm text-[color:var(--text-primary)] px-2">
-                Page <span className="font-medium">{page + 1}</span> of <span className="font-medium">{totalPages}</span>
+                Page <span className="font-medium">{page + 1}</span> of{" "}
+                <span className="font-medium">{totalPages}</span>
               </div>
               <button
                 onClick={onNext}
@@ -2360,7 +2708,7 @@ export default function Dashboard({
                   Export in progress
                 </div>
                 <div className="text-xs text-[color:var(--text-muted)]">
-                  {pageExportStatus || 'Preparing file...'}
+                  {pageExportStatus || "Preparing file..."}
                 </div>
               </div>
             </div>
@@ -2375,7 +2723,8 @@ export default function Dashboard({
                 />
               </div>
               <div className="mt-2 text-xs text-[color:var(--text-muted)]">
-                {pageExportProgress ? `${pageExportProgress}%` : '0%'} -- Please wait, do not refresh
+                {pageExportProgress ? `${pageExportProgress}%` : "0%"} -- Please
+                wait, do not refresh
               </div>
             </div>
           </div>

@@ -18,6 +18,7 @@ router.post("/lists/:id/contacts", controller.addContacts);
 router.post("/lists/:id/contacts/remove", controller.removeContactsFromList);
 router.post("/lists/:id/import", controller.importContacts);
 router.get("/contacts", controller.getContacts);
+router.post("/contacts/import", controller.importContactsDirect);
 router.put("/contacts/:id", controller.updateContact);
 router.delete("/contacts/:id", controller.deleteContact);
 

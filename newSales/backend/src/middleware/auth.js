@@ -10,7 +10,12 @@ exports.auth = (req, res, next) => {
   if (!token) return res.status(401).json({ message: "No token provided" });
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    req.user = payload;
+    const userId =
+      payload?.id || payload?.userId || payload?.uid || payload?.user_id;
+    if (!userId) {
+      return res.status(401).json({ message: "Invalid token payload" });
+    }
+    req.user = { ...payload, id: userId };
     next();
   } catch (e) {
     return res.status(401).json({ message: "Invalid or expired token" });
