@@ -19,3 +19,15 @@ pnpm-debug.log*
 dist/
 build/
 coverage/
+
+echo backend/exports/ >> .gitignore
+echo *.csv >> .gitignore
+git add .gitignore
+git commit -m "chore: ignore exports and csv files"
+
+backend/exports/
+backup/
+*.csv
+.env*
+**/client_secret*.json
+**/SalesCredentials.txt
