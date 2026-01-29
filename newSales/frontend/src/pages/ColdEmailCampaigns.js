@@ -428,14 +428,14 @@ export default function ColdEmailCampaigns() {
           <h2 className="text-sm font-semibold text-[color:var(--text-primary)]">
             All Campaigns
           </h2>
-          <div className="mt-4 max-h-[520px] overflow-auto border rounded-lg">
+          <div className="mt-4 sd-table-wrap overflow-x-auto">
             {campaigns.length === 0 ? (
               <div className="p-3 text-xs text-[color:var(--text-muted)]">
                 No campaigns yet.
               </div>
             ) : (
-              <table className="w-full text-xs">
-                <thead className="bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
+              <table className="sd-table w-full text-xs">
+                <thead>
                   <tr>
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Status</th>
@@ -444,9 +444,9 @@ export default function ColdEmailCampaigns() {
                 </thead>
                 <tbody>
                   {campaigns.map((c) => (
-                    <tr key={c.id} className="border-t">
+                    <tr key={c.id}>
                       <td className="p-2">
-                        <div className="font-medium">{c.name}</div>
+                        <div className="font-medium cell-capitalize">{c.name}</div>
                         <div className="text-[10px] text-[color:var(--text-muted)]">
                           {c.list_name} · {c.message_count || 0} messages
                         </div>
@@ -531,14 +531,14 @@ export default function ColdEmailCampaigns() {
                 ))}
               </div>
 
-              <div className="mt-4 max-h-[360px] overflow-auto border rounded-lg">
+              <div className="mt-4 sd-table-wrap overflow-x-auto">
                 {campaignMessages.length === 0 ? (
                   <div className="p-3 text-xs text-[color:var(--text-muted)]">
                     No messages yet.
                   </div>
                 ) : (
-                  <table className="w-full text-xs">
-                    <thead className="bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
+                  <table className="sd-table w-full text-xs">
+                    <thead>
                       <tr>
                         <th className="text-left p-2">Email</th>
                         <th className="text-left p-2">Step</th>
@@ -548,7 +548,7 @@ export default function ColdEmailCampaigns() {
                     </thead>
                     <tbody>
                       {campaignMessages.map((m) => (
-                        <tr key={m.message_id} className="border-t">
+                        <tr key={m.message_id}>
                           <td className="p-2">{m.email}</td>
                           <td className="p-2">{m.step_number}</td>
                           <td className="p-2">{m.status}</td>

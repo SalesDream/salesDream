@@ -389,7 +389,9 @@ export default function AdminDashboard(){
                 return (
                   <tr key={user.id} className={blocked ? 'row-blocked' : ''}>
                     <td className="col-id">{user.id}</td>
-                    <td className="col-name">{user.name || '-'}</td>
+                    <td className="col-name">
+                      <span className="cell-capitalize">{user.name || "-"}</span>
+                    </td>
                     <td className="col-email">{user.email}</td>
 
                     <td className="col-status">

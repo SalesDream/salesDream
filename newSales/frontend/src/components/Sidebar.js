@@ -22,7 +22,7 @@ import {
 import AppLogo from "../components/AppLogo";
 import { useAuthRole } from "../useAuth";
 
-const ACTIVE_BG = "bg-[#31A6F7]";
+const ACTIVE_BG = "bg-white/20 ring-1 ring-white/25";
 const HOVER_BG = "hover:bg-white/10";
 
 const coldEmailItems = [
@@ -44,17 +44,18 @@ const baseSections = [
       { to: "/search-name", label: "Search Name", icon: User },
     ],
   },
+  
+  {
+    title: "COLD EMAIL",
+    items: [
+      { label: "Cold Email", icon: Mail, children: coldEmailItems },
+    ],
+  },
   {
     title: "ACCOUNT",
     items: [
       { to: "/settings", label: "Setting", icon: Settings },
       { to: "/change-password", label: "Change Password", icon: Key },
-    ],
-  },
-  {
-    title: "COLD EMAIL",
-    items: [
-      { label: "Cold Email", icon: Mail, children: coldEmailItems },
     ],
   },
 ];
@@ -131,6 +132,7 @@ export default function Sidebar() {
     width: hovered ? openW : railW,
     background:
       "linear-gradient(180deg, var(--sidebar-from, #0E5A88), var(--sidebar-to, #31A6F7))",
+    boxShadow: "var(--shadow-strong, 0 22px 70px rgba(0, 0, 0, 0.2))",
   };
 
   return (

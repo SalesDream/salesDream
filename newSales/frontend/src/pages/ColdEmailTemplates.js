@@ -217,14 +217,14 @@ export default function ColdEmailTemplates() {
           <h2 className="text-sm font-semibold text-[color:var(--text-primary)]">
             All Templates
           </h2>
-          <div className="mt-4 max-h-[520px] overflow-auto border rounded-lg">
+          <div className="mt-4 sd-table-wrap overflow-x-auto">
             {templates.length === 0 ? (
               <div className="p-3 text-xs text-[color:var(--text-muted)]">
                 No templates yet.
               </div>
             ) : (
-              <table className="w-full text-xs">
-                <thead className="bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
+              <table className="sd-table w-full text-xs">
+                <thead>
                   <tr>
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Type</th>
@@ -233,9 +233,9 @@ export default function ColdEmailTemplates() {
                 </thead>
                 <tbody>
                   {templates.map((tpl) => (
-                    <tr key={tpl.id} className="border-t">
+                    <tr key={tpl.id}>
                       <td className="p-2">
-                        <div className="font-medium">{tpl.name}</div>
+                        <div className="font-medium cell-capitalize">{tpl.name}</div>
                         <div className="text-[10px] text-[color:var(--text-muted)]">
                           {tpl.subject}
                         </div>

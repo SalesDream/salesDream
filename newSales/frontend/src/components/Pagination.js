@@ -18,7 +18,7 @@ export default function Pagination({ total = 0, limit = 20, offset = 0, onPageCh
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="px-2 py-1 border rounded-md bg-[color:var(--surface)] hover:bg-[color:var(--surface-muted)] disabled:opacity-50"
+          className="btn-ghost disabled:opacity-50"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
         >
@@ -30,7 +30,7 @@ export default function Pagination({ total = 0, limit = 20, offset = 0, onPageCh
         </span>
         <button
           type="button"
-          className="px-2 py-1 border rounded-md bg-[color:var(--surface)] hover:bg-[color:var(--surface-muted)] disabled:opacity-50"
+          className="btn-ghost disabled:opacity-50"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
         >

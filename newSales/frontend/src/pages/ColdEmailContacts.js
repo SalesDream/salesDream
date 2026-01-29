@@ -222,14 +222,14 @@ export default function ColdEmailContacts() {
           />
         </label>
 
-        <div className="mt-4 max-h-[520px] overflow-auto border rounded-lg">
+        <div className="mt-4 sd-table-wrap overflow-x-auto">
           {contacts.length === 0 ? (
             <div className="p-3 text-xs text-[color:var(--text-muted)]">
               No contacts found.
             </div>
           ) : (
-            <table className="w-full text-xs">
-              <thead className="bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
+            <table className="sd-table w-full text-xs">
+              <thead>
                 <tr>
                   <th className="text-left p-2">
                     <input
@@ -249,7 +249,7 @@ export default function ColdEmailContacts() {
               </thead>
               <tbody>
                 {contacts.map((c) => (
-                  <tr key={c.id} className="border-t">
+                  <tr key={c.id}>
                     <td className="p-2">
                       <input
                         type="checkbox"
@@ -301,11 +301,11 @@ export default function ColdEmailContacts() {
                             placeholder="Last"
                           />
                         </div>
-                      ) : (
-                        <div>
-                          {(c.first_name || "") + " " + (c.last_name || "")}
-                        </div>
-                      )}
+                        ) : (
+                          <div className="cell-capitalize">
+                            {(c.first_name || "") + " " + (c.last_name || "")}
+                          </div>
+                        )}
                     </td>
                     <td className="p-2">
                       {editingContactId === c.id ? (
@@ -333,14 +333,14 @@ export default function ColdEmailContacts() {
                             placeholder="Title"
                           />
                         </div>
-                      ) : (
-                        <div>
-                          <div>{c.company || "-"}</div>
-                          <div className="text-[10px] text-[color:var(--text-muted)]">
-                            {c.title || ""}
+                        ) : (
+                          <div className="cell-capitalize">
+                            <div>{c.company || "-"}</div>
+                            <div className="text-[10px] text-[color:var(--text-muted)]">
+                              {c.title || ""}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </td>
                     <td className="p-2">
                       {listFilter !== "all" && editingContactId === c.id ? (

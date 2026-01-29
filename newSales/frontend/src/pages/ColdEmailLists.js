@@ -414,7 +414,7 @@ export default function ColdEmailLists() {
             </button>
           </div>
 
-          <div className="mt-4 max-h-[360px] overflow-auto border rounded-lg">
+          <div className="mt-4 sd-table-wrap overflow-x-auto">
             {!selectedListId && (
               <div className="p-3 text-xs text-[color:var(--text-muted)]">
                 Select a list to view its contacts.
@@ -426,8 +426,8 @@ export default function ColdEmailLists() {
               </div>
             )}
             {selectedListId && contacts.length > 0 && (
-              <table className="w-full text-xs">
-                <thead className="bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
+              <table className="sd-table w-full text-xs">
+                <thead>
                   <tr>
                     <th className="text-left p-2">
                       <input
@@ -444,7 +444,7 @@ export default function ColdEmailLists() {
                 </thead>
                 <tbody>
                   {contacts.map((c) => (
-                    <tr key={c.id} className="border-t">
+                    <tr key={c.id}>
                       <td className="p-2">
                         <input
                           type="checkbox"
@@ -458,7 +458,9 @@ export default function ColdEmailLists() {
                           {c.email_valid ? "valid" : "invalid"}
                         </div>
                       </td>
-                      <td className="p-2">{`${c.first_name || ""} ${c.last_name || ""}`}</td>
+                      <td className="p-2">
+                        <span className="cell-capitalize">{`${c.first_name || ""} ${c.last_name || ""}`}</span>
+                      </td>
                       <td className="p-2">{c.list_status || "active"}</td>
                       <td className="p-2">
                         <div className="flex flex-wrap gap-2">

@@ -149,10 +149,10 @@ export default function ExportedCsv() {
         </div>
       ) : null}
 
-      <div className="bg-[color:var(--surface)] border border-[color:var(--border-color)] rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-auto">
-          <table className="min-w-[860px] w-full">
-            <thead className="bg-[color:var(--surface-muted)] text-[color:var(--text-primary)]">
+      <div className="sd-table-wrap shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="sd-table min-w-[860px] w-full">
+            <thead>
               <tr>
                 <th className="text-left text-xs font-semibold px-3 py-2">CSV Name</th>
                 <th className="text-left text-xs font-semibold px-3 py-2">Exported Date</th>
@@ -176,7 +176,7 @@ export default function ExportedCsv() {
                 </tr>
               ) : (
                 paginatedFiles.map((f) => (
-                  <tr key={f.filename} className="border-t border-[color:var(--border-color)]">
+                  <tr key={f.filename}>
                     <td className="px-3 py-2 text-sm">
                       <div className="font-medium">{f.filename}</div>
                     </td>

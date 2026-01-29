@@ -67,7 +67,7 @@ export default function Header() {
       <div className="flex items-center gap-2">
         <button
           onClick={toggleTheme}
-          className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--text-primary)] hover:text-[color:var(--accent)] px-2 py-1.5 rounded-md border border-[color:var(--border-color)] bg-[color:var(--surface-muted)]"
+          className="btn-soft inline-flex items-center gap-2 text-sm"
           title="Toggle light/dark theme"
         >
           {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -76,7 +76,7 @@ export default function Header() {
 
         <button
           onClick={() => setThemeOpen((v) => !v)}
-          className="hidden sm:inline-flex items-center gap-2 text-sm font-medium text-[color:var(--text-primary)] hover:text-[color:var(--accent)] px-3 py-1.5 rounded-md border border-[color:var(--border-color)] bg-[color:var(--surface-muted)]"
+          className="btn-soft hidden sm:inline-flex items-center gap-2 text-sm"
           title="Theme and sidebar branding"
           aria-expanded={themeOpen}
         >
@@ -87,7 +87,7 @@ export default function Header() {
         <div className="relative">
           <button
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--text-primary)] hover:text-[color:var(--accent)] px-3 py-1.5 rounded-md border border-[color:var(--border-color)] bg-[color:var(--surface-muted)]"
+            className="btn-soft inline-flex items-center gap-2 text-sm"
             aria-haspopup="true"
             aria-expanded={open}
           >
@@ -124,7 +124,7 @@ export default function Header() {
               <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Theme & sidebar</h3>
               <button
                 onClick={toggleTheme}
-                className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded border border-[color:var(--border-color)] text-[color:var(--text-primary)] hover:text-[color:var(--accent)]"
+                className="btn-ghost inline-flex items-center gap-2 text-xs"
               >
                 {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 {theme === "dark" ? "Light mode" : "Dark mode"}
@@ -187,13 +187,13 @@ export default function Header() {
                   setToColor("#31A6F7");
                   setTheme("light");
                 }}
-                className="px-3 py-1 rounded border border-[color:var(--border-color)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]"
+                className="btn-ghost text-sm"
               >
                 Reset
               </button>
               <button
                 onClick={saveTheme}
-                className="px-3 py-1 rounded bg-[color:var(--accent)] text-white text-sm hover:bg-[color:var(--accent-2)]"
+                className="btn-primary text-sm"
               >
                 Save
               </button>

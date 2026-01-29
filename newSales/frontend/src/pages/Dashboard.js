@@ -6,6 +6,7 @@ import React, {
   useState,
   useCallback,
 } from "react";
+import ReactDOM from "react-dom";
 import { Navigate, useLocation } from "react-router-dom";
 import api from "../api";
 import { AgGridReact } from "ag-grid-react";
@@ -416,11 +417,31 @@ const DateCell = (p) => {
   return d.toLocaleDateString();
 };
 
+const MAX_CELL_CHARS = 20;
+const BASE_ROW_HEIGHT = 42;
+
 const normalizeUrl = (v) => {
   if (!v) return null;
   const s = String(v).trim();
   if (!s || s === "-") return null;
   return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+};
+
+const shouldCapitalize = (field) => {
+  if (!field) return false;
+  const f = String(field).toLowerCase();
+  if (
+    /(email|domain|website|url|linkedin|facebook|twitter|phone|zip|id|case|doc|number|code)/.test(
+      f,
+    )
+  )
+    return false;
+  return /(name|city|state|country|title|company)/.test(f);
+};
+
+const getRowKey = (params) => {
+  const r = params?.data || {};
+  return r._id || r.id || r.lead_id || params?.node?.id || params?.rowIndex || "row";
 };
 
 function getNested(obj, path) {
@@ -489,6 +510,7 @@ export default function Dashboard({
 
   // quick pages (kept)
   const [quickInput, setQuickInput] = useState("");
+  const [activeTooltip, setActiveTooltip] = useState(null);
 
   // Auth
   const token = useAuthToken();
@@ -547,6 +569,20 @@ export default function Dashboard({
     setF((prev) => ({ ...prev, ...presetFilters }));
   }, [JSON.stringify(presetFilters || {})]);
 
+  useEffect(() => {
+    setF({ ...initialFilters, ...(presetFilters || {}) });
+    setGlobalSearch(presetQuery || "");
+    setRowData([]);
+    setViewRows([]);
+    setHasApplied(false);
+    setSelectedCount(0);
+    setTotalHits(0);
+    setPage(0);
+    setEmailInput("");
+    setQuickInput("");
+    setActiveTooltip(null);
+  }, [pathname, presetQuery, JSON.stringify(presetFilters || {})]);
+
   // measure chip bar height
   useEffect(() => {
     const el = chipBarRef.current;
@@ -560,6 +596,17 @@ export default function Dashboard({
     ro.observe(el);
     return () => ro.disconnect();
   }, [chipBarRef, viewRows.length, selectedCount]);
+
+  useEffect(() => {
+    if (!activeTooltip) return;
+    const handleClose = () => setActiveTooltip(null);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    return () => {
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+    };
+  }, [activeTooltip]);
 
   // Dummy avatar
   const DUMMY_AVATAR =
@@ -1144,6 +1191,113 @@ export default function Dashboard({
     );
   }, []);
 
+  const toggleExpandCell = useCallback(
+    (key, anchorEl, payload) => {
+      if (!anchorEl) {
+        setActiveTooltip(null);
+        return;
+      }
+      if (activeTooltip?.key === key) {
+        setActiveTooltip(null);
+        return;
+      }
+      const rect = anchorEl.getBoundingClientRect();
+      setActiveTooltip({
+        key,
+        text: payload?.text ?? "",
+        title: payload?.title ?? "",
+        rect: {
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          bottom: rect.bottom,
+          width: rect.width,
+        },
+      });
+    },
+    [activeTooltip],
+  );
+
+  const renderWithTooltip = useCallback(
+    (params, fullText, content) => {
+      const str = fullText == null ? "" : String(fullText);
+      if (str.length <= MAX_CELL_CHARS) return content ?? str;
+      const key = `${getRowKey(params)}-${params.colDef?.field || ""}`;
+      const shown = `${str.slice(0, MAX_CELL_CHARS)}...`;
+      const expanded = activeTooltip?.key === key;
+      const tooltipTitle =
+        params?.colDef?.headerName ||
+        params?.colDef?.field ||
+        "Details";
+
+      return (
+        <span className="sd-cell-tooltip-wrap inline-flex flex-col items-center gap-1 text-xs">
+          <span
+            style={{
+              whiteSpace: "nowrap",
+              wordBreak: "break-word",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: "100%",
+            }}
+          >
+            {content ?? shown}
+          </span>
+          <button
+            type="button"
+            className="text-[var(--accent)] text-[10px] underline"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleExpandCell(key, e.currentTarget, {
+                text: str,
+                title: tooltipTitle,
+              });
+            }}
+          >
+            {expanded ? "View less" : "View more"}
+          </button>
+        </span>
+      );
+    },
+    [activeTooltip, toggleExpandCell],
+  );
+
+  const LinkCellRenderer = useCallback(
+    (params) => {
+      const v = params.value ?? params.data?.[params.colDef.field];
+      if (!v) return <span className="text-slate-400">--</span>;
+      const href = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+      const label = String(v).replace(/^https?:\/\//i, "");
+      const link = (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sky-700 hover:underline truncate"
+          title={label}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {label}
+        </a>
+      );
+      return renderWithTooltip(params, label, link);
+    },
+    [renderWithTooltip],
+  );
+
+  const defaultCellRenderer = useCallback(
+    (params) => {
+      const raw =
+        params?.valueFormatted !== undefined
+          ? params.valueFormatted
+          : params?.value;
+      if (raw === undefined || raw === null || raw === "") return "--";
+      return renderWithTooltip(params, raw);
+    },
+    [renderWithTooltip],
+  );
+
   /* ---------- Columns ---------- */
   const baseColumns = useMemo(
     () => [
@@ -1161,6 +1315,7 @@ export default function Dashboard({
         resizable: false,
         filter: false,
         lockPosition: true,
+        valueFormatter: () => "",
       },
       {
         headerName: "Employees",
@@ -1168,6 +1323,7 @@ export default function Dashboard({
         flex: 0.6,
         minWidth: 110,
         sortable: true,
+        cellRenderer: defaultCellRenderer,
       },
       {
         headerName: "Revenue (Minâ€“Max)",
@@ -1180,9 +1336,10 @@ export default function Dashboard({
           return a || b ? `${a || "â€“"} â€“ ${b || "â€“"}` : "";
         },
         sortable: true,
+        cellRenderer: defaultCellRenderer,
       },
     ],
-    [],
+    [defaultCellRenderer],
   );
 
   const ALL_FIELDS = [
@@ -1243,6 +1400,7 @@ export default function Dashboard({
           sortable: true,
           cellRenderer: undefined,
           type: numericRight.has(field) ? "rightAligned" : undefined,
+          cellClass: shouldCapitalize(field) ? "cell-capitalize" : "",
           valueFormatter: (params) => {
             const v = params.value;
             if (
@@ -1260,7 +1418,7 @@ export default function Dashboard({
             field,
           )
         ) {
-          def.cellRenderer = LinkCell;
+          def.cellRenderer = LinkCellRenderer;
           def.minWidth = 180;
         }
         if (field === "created_at") {
@@ -1268,10 +1426,14 @@ export default function Dashboard({
           def.minWidth = 150;
         }
 
+        if (!def.cellRenderer) {
+          def.cellRenderer = defaultCellRenderer;
+        }
+
         return def;
       },
     );
-  }, [excludeFromExtras]);
+  }, [excludeFromExtras, defaultCellRenderer, LinkCellRenderer]);
 
   const columnDefs = useMemo(() => {
     const allDefs = [...baseColumns, ...extraColumns];
@@ -1824,6 +1986,25 @@ export default function Dashboard({
     return Number(totalHits).toLocaleString();
   }, [totalHits]);
 
+  const tooltipPosition = useMemo(() => {
+    if (!activeTooltip?.rect) return null;
+    const rect = activeTooltip.rect;
+    const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const viewportH =
+      typeof window !== "undefined" ? window.innerHeight : 800;
+    const leftBase = rect.left + rect.width / 2;
+    const minHalf = 160;
+    const padding = 16;
+    const left = Math.min(
+      Math.max(leftBase, minHalf + padding),
+      viewportW - minHalf - padding,
+    );
+    const placeAbove = rect.bottom + 180 > viewportH;
+    const top = placeAbove ? rect.top - 8 : rect.bottom + 8;
+    const transform = placeAbove ? "translate(-50%, -100%)" : "translate(-50%, 0)";
+    return { left, top, transform };
+  }, [activeTooltip]);
+
   /* =======================
      EXPORT HELPERS (page CSV/Excel)
      ======================= */
@@ -2146,6 +2327,10 @@ export default function Dashboard({
 
   const showGlobal = showGlobalControls !== false && presetFocus === "all";
   const showExports = showExportControls !== false && presetFocus === "all";
+  const toolbarBtnBase =
+    "h-7 inline-flex items-center gap-2 px-2 rounded-md border border-[color:var(--border-color)] text-xs whitespace-nowrap shadow-sm transition";
+  const toolbarBtnSurface =
+    "bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]";
 
   /* ---------- Render ---------- */
   return (
@@ -2161,14 +2346,14 @@ export default function Dashboard({
       />
 
       <div className="flex-1 flex flex-col overflow-visible">
-        <div className="pt-3 pb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="pt-2 pb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold leading-tight">{heading}</h1>
           </div>
 
           {showGlobal ? (
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <div className="relative w-full sm:w-[380px]">
+            <div className="flex items-center gap-2 flex-nowrap justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-[360px] min-w-0">
                 <input
                   type="text"
                   value={globalSearch}
@@ -2177,12 +2362,12 @@ export default function Dashboard({
                     if (e.key === "Enter") runSearch();
                   }}
                   placeholder={globalPlaceholder}
-                  className="h-10 w-full rounded-lg border border-[color:var(--border-color)] bg-[color:var(--surface)] px-3 pr-16 text-sm text-[color:var(--text-primary)] shadow-sm focus:ring-2 focus:ring-[color:var(--accent)]"
+                  className="h-7 w-full rounded-lg border border-[color:var(--border-color)] bg-[color:var(--surface)] px-2 text-xs text-[color:var(--text-primary)] shadow-sm focus:ring-2 focus:ring-[color:var(--accent)]"
                   disabled={pageExporting}
                 />
                 <button
                   onClick={runSearch}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-[color:var(--accent)] text-white rounded-md hover:bg-[color:var(--accent-2)] shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="h-7 px-3 text-xs bg-[color:var(--accent)] text-white rounded-md hover:bg-[color:var(--accent-2)] shadow disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
                   type="button"
                   disabled={pageExporting}
                 >
@@ -2197,7 +2382,7 @@ export default function Dashboard({
                     e.stopPropagation();
                     setColsOpen((s) => !s);
                   }}
-                  className="inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={`${toolbarBtnBase} ${toolbarBtnSurface} disabled:opacity-60 disabled:cursor-not-allowed`}
                   title="Columns"
                   disabled={pageExporting}
                 >
@@ -2274,10 +2459,10 @@ export default function Dashboard({
                     selectedCount === 0 || addingToColdEmail || pageExporting
                   }
                   title="Add selected rows to cold email contacts"
-                  className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md text-sm transition ${
+                  className={`${toolbarBtnBase} ${
                     selectedCount === 0 || addingToColdEmail || pageExporting
                       ? "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] cursor-not-allowed"
-                      : "bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]"
+                      : toolbarBtnSurface
                   }`}
                   type="button"
                 >
@@ -2303,7 +2488,7 @@ export default function Dashboard({
                   <button
                     onClick={exportCSV}
                     disabled={pageExporting}
-                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
+                    className={`${toolbarBtnBase} ${toolbarBtnSurface} ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     type="button"
                   >
                     {activeExportBtn === "csv" ? (
@@ -2319,7 +2504,7 @@ export default function Dashboard({
                   <button
                     onClick={exportExcel}
                     disabled={pageExporting}
-                    className={`inline-flex items-center gap-2 px-3 py-1 border border-[color:var(--border-color)] rounded-md bg-[color:var(--surface)] text-sm text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)] ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
+                    className={`${toolbarBtnBase} ${toolbarBtnSurface} ${pageExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     type="button"
                   >
                     {activeExportBtn === "excel" ? (
@@ -2337,7 +2522,11 @@ export default function Dashboard({
                       onClick={startExportAllCSV}
                       disabled={exporting || pageExporting}
                       title="Export all records (server job)"
-                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border border-[color:var(--border-color)] transition ${exporting || pageExporting ? "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] cursor-not-allowed" : "bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--surface-muted)]"}`}
+                      className={`${toolbarBtnBase} ${
+                        exporting || pageExporting
+                          ? "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] cursor-not-allowed"
+                          : toolbarBtnSurface
+                      }`}
                       type="button"
                     >
                       {exporting ? (
@@ -2540,24 +2729,11 @@ export default function Dashboard({
           </div>
         )} */}
 
-        <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-visible">
+        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-visible">
           {!hasApplied && !isQuickPage ? (
             <Hero />
           ) : (
-            <div
-              className="relative ag-theme-quartz card border border-[color:var(--border-color)] rounded-xl h-full w-full overflow-hidden"
-              style={{
-                "--ag-header-background-color": "#deeff7ff",
-                "--ag-header-foreground-color": "#1f2933",
-                "--ag-header-height": "44px",
-                "--ag-border-color": "var(--border-color)",
-                "--ag-header-column-separator-display": "block",
-                "--ag-header-column-separator-color": "rgba(0,0,0,0.08)",
-                "--ag-header-column-resize-handle-color": "rgba(0,0,0,0.2)",
-                "--ag-odd-row-background-color": "var(--surface-muted)",
-                "--ag-background-color": "var(--surface)",
-              }}
-            >
+            <div className="relative ag-theme-quartz sd-grid sd-grid-tall w-full overflow-hidden">
               <div className="h-full w-full overflow-auto">
                 <AgGridReact
                   ref={gridRef}
@@ -2565,13 +2741,15 @@ export default function Dashboard({
                   columnDefs={columnDefs}
                   defaultColDef={defaultColDef}
                   rowSelection="multiple"
+                  suppressRowClickSelection
                   pagination={false}
                   animateRows
                   enableCellTextSelection
                   suppressDragLeaveHidesColumns
                   onSelectionChanged={onSelectionChanged}
                   onGridReady={onGridReady}
-                  rowHeight={56}
+                  onBodyScroll={() => setActiveTooltip(null)}
+                  rowHeight={42}
                   style={{ width: "100%", height: "100%" }}
                 />
               </div>
@@ -2594,7 +2772,7 @@ export default function Dashboard({
         </div>
 
         {hasApplied && totalHits > 0 && (
-          <div className="pt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
             <div className="relative overflow-visible">
               <button
                 type="button"
@@ -2677,6 +2855,35 @@ export default function Dashboard({
           </div>
         )}
       </div>
+
+      {activeTooltip && tooltipPosition &&
+        ReactDOM.createPortal(
+          <div
+            className="sd-cell-tooltip sd-cell-tooltip-portal"
+            role="dialog"
+            style={{
+              left: tooltipPosition.left,
+              top: tooltipPosition.top,
+              transform: tooltipPosition.transform,
+            }}
+          >
+            <span className="sd-cell-tooltip-title">
+              {activeTooltip.title || "Details"}
+              <button
+                type="button"
+                className="sd-cell-tooltip-close"
+                onClick={() => setActiveTooltip(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </span>
+            <span className="sd-cell-tooltip-body">
+              {activeTooltip.text}
+            </span>
+          </div>,
+          document.body,
+        )}
 
       {pageExporting && (
         <div className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-[1px] flex items-center justify-center">

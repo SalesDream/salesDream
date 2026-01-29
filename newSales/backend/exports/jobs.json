@@ -1,0 +1,12 @@
+{
+  "bfa65e11037877205c35": {
+    "jobId": "bfa65e11037877205c35",
+    "status": "running",
+    "progress": 0,
+    "processed": 8000,
+    "total": 69950969,
+    "filename": "leads_export_1769703884303_bfa65e11037877205c35.csv",
+    "filepath": "D:\\avinash Development\\Development\\node\\salesdream-clone\\salesdream-clone\\newSales\\backend\\exports\\leads_export_1769703884303_bfa65e11037877205c35.csv",
+    "startedAt": 1769703884303
+  }
+}
