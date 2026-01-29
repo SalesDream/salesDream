@@ -31,3 +31,8 @@ backup/
 .env*
 **/client_secret*.json
 **/SalesCredentials.txt
+# exports / generated files
+backend/exports/
+NewSales/backend/exports/
+**/exports/
+*.csv
