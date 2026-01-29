@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-page: #f4f6fb;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --text-primary: #0f172a;
+  --text-muted: #6b7280;
+  --border-color: #e5e7eb;
+  --accent: #2563eb;
+  --accent-2: #0ea5e9;
+  --sidebar-from: #0e5a88;
+  --sidebar-to: #31a6f7;
+  --shadow-soft: 0 20px 60px rgba(15, 23, 42, 0.08);
+  --scroll-thumb: #2563eb;
+  --scroll-track: #e5e7eb;
+}
+
+[data-theme="dark"] {
+  --bg-page: #0b1220;
+  --surface: #0f172a;
+  --surface-muted: #111827;
+  --text-primary: #e5e7ef;
+  --text-muted: #9ca3af;
+  --border-color: #1f2937;
+  --accent: #38bdf8;
+  --accent-2: #6366f1;
+  --sidebar-from: #0b1325;
+  --sidebar-to: #111827;
+  --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --scroll-thumb: #38bdf8;
+  --scroll-track: #0b1220;
+}
+
+/* App globals */
+html, body, #root { height: 100%; }
+body {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Default form theming */
+input, select, textarea {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+.text-symbolic { @apply text-xs font-medium text-gray-500; }
+
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-soft);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+}
+.muted-border {
+  border-color: var(--border-color);
+}
+
+/* Global scrollbar styling (all scrollable areas) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: var(--scroll-track);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+  border: 2px solid var(--scroll-track);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--scroll-thumb) 85%, #fff 15%);
+}
+*::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+.surface-muted {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+}
+
+.ag-theme-quartz.pro-header {
+  --ag-header-background-color: #0f172a;
+  --ag-header-foreground-color: #ffffff;
+  --ag-header-height: 44px;
+  --ag-border-color: #e5e7eb;
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: rgba(255,255,255,.25);
+  --ag-header-column-resize-handle-color: rgba(255,255,255,.5);
+}
+
+[data-theme="dark"] .ag-theme-quartz {
+  --ag-background-color: var(--surface-muted);
+  --ag-foreground-color: var(--text-primary);
+  --ag-header-background-color: #0b1628;
+  --ag-header-foreground-color: #e5e7ef;
+  --ag-odd-row-background-color: rgba(255,255,255,0.02);
+  --ag-border-color: #1f2937;
+}
+
+/* Themed scrollbars (grids only) */
+.ag-theme-quartz ::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+  background: var(--surface-muted);
+}
+.ag-theme-quartz ::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 999px;
+}
+.ag-theme-quartz ::-webkit-scrollbar-track {
+  background: var(--surface-muted);
+}
+
+/* Harmonize header + cell borders with theme */
+.ag-theme-quartz .ag-header,
+.ag-theme-quartz .ag-header-cell,
+.ag-theme-quartz .ag-header-viewport {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+.ag-theme-quartz .ag-cell {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
