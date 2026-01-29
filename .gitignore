@@ -36,3 +36,13 @@ backend/exports/
 NewSales/backend/exports/
 **/exports/
 *.csv
+
+# Ignore text files
+*.txt
+
+# Ignore PuTTY private keys
+*.ppk
+
+# Extra safety (specific names if needed)
+AVINASH_SALES_DREAM_SERVER.txt
+New_Server_ppk_key.ppk
